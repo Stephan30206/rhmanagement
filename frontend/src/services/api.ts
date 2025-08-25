@@ -1,0 +1,443 @@
+import axios from 'axios';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+
+export interface Employe {
+    numeroCNAPS: string;
+    nombreEnfants: number;
+    dateNaissanceConjoint: string;
+    nomConjoint: string;
+    id: number;
+    matricule: string;
+    nom: string;
+    prenom: string;
+    dateNaissance: string;
+    lieuNaissance?: string;
+    nationalite: string;
+    cin?: string;
+    adresse?: string;
+    telephone?: string;
+    email?: string;
+    photoProfil?: string;
+    statutMatrimonial: string;
+    dateMariage?: string;
+    contactUrgenceNom?: string;
+    contactUrgenceLien?: string;
+    contactUrgenceTelephone?: string;
+    nomPere?: string;
+    nomMere?: string;
+    poste: string;
+    organisationEmployeur?: string;
+    typeContrat: string;
+    dateDebut?: string;
+    dateFin?: string;
+    salaireBase?: number;
+    pourcentageSalaire?: number;
+    statut: 'ACTIF' | 'INACTIF' | 'EN_CONGE';
+    dateAccreditation?: string;
+    niveauAccreditation?: string;
+    groupeAccreditation?: string;
+    superviseurHierarchique?: string;
+    affectationActuelle?: string;
+}
+
+export interface TypeConge {
+    id: number;
+    code: string;
+    nom: string;
+    joursAlloues: number;
+    reportable: boolean;
+    exigences?: string;
+}
+
+export interface DemandeConge {
+    id: number;
+    employeId: number;
+    typeCongeId: number;
+    dateDebut: string;
+    dateFin: string;
+    joursDemandes?: number;
+    motif?: string;
+    statut: 'EN_ATTENTE' | 'APPROUVE' | 'REJETE' | 'ANNULE';
+    approuvePar?: number;
+    dateTraitement?: string;
+    motifRejet?: string;
+    employe?: Employe;
+    typeConge?: TypeConge;
+}
+
+const api = axios.create({
+    baseURL: API_BASE_URL,
+    headers: {
+        'Content-Type': 'application/json',
+    },
+    withCredentials: true,
+});
+
+api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        console.error('API Error:', error.response?.data || error.message);
+        return Promise.reject(error);
+    }
+);
+
+// @ts-ignore
+export const employeService = {
+    uploadPhoto: async (id: number, file: File): Promise<Employe> => {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        console.log('Envoi photo, ID:', id, 'Fichier:', file.name, 'Taille:', file.size);
+
+        const response = await api.post(`/employes/${id}/photo`, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+        return response.data;
+    },
+
+    // Fonction pour supprimer la photo
+    deletePhoto: async (id: number): Promise<Employe> => {
+        const response = await api.delete(`/employes/${id}/photo`);
+        return response.data;
+    },
+
+    getAllEmployes: async (): Promise<Employe[]> => {
+        const response = await api.get('/employes');
+        return response.data;
+    },
+
+    getEmployeById: async (id: number): Promise<Employe> => {
+        const response = await api.get(`/employes/${id}`);
+        return response.data;
+    },
+
+    createEmploye: async (employe: {
+        matricule: string;
+        nom: string;
+        prenom: string;
+        dateNaissance: string;
+        lieuNaissance: string;
+        nationalite: string;
+        cin: string;
+        adresse: string;
+        telephone: string;
+        email: string;
+        photoProfil: string;
+        statutMatrimonial: string;
+        dateMariage: null;
+        contactUrgenceNom: string;
+        contactUrgenceLien: string;
+        contactUrgenceTelephone: string;
+        nomPere: string;
+        nomMere: string;
+        poste: string;
+        organisationEmployeur: string;
+        typeContrat: string;
+        dateDebut: null;
+        dateFin: null;
+        salaireBase: number;
+        pourcentageSalaire: number;
+        statut: string;
+        dateAccreditation: null;
+        niveauAccreditation: string;
+        groupeAccreditation: string;
+        superviseurHierarchique: string;
+        affectationActuelle: string
+    }): Promise<Employe> => {
+        const response = await api.post('/employes', employe);
+        return response.data;
+    },
+
+    updateEmploye: async (id: number, employe: {
+        matricule: string;
+        nom: string;
+        prenom: string;
+        dateNaissance: string;
+        lieuNaissance: string;
+        nationalite: string;
+        cin: string;
+        adresse: string;
+        telephone: string;
+        email: string;
+        photoProfil: string;
+        statutMatrimonial: string;
+        dateMariage: null;
+        contactUrgenceNom: string;
+        contactUrgenceLien: string;
+        contactUrgenceTelephone: string;
+        nomPere: string;
+        nomMere: string;
+        poste: string;
+        organisationEmployeur: string;
+        typeContrat: string;
+        dateDebut: null;
+        dateFin: null;
+        salaireBase: number;
+        pourcentageSalaire: number;
+        statut: string;
+        dateAccreditation: null;
+        niveauAccreditation: string;
+        groupeAccreditation: string;
+        superviseurHierarchique: string;
+        affectationActuelle: string
+    }): Promise<Employe> => {
+        const response = await api.put(`/employes/${id}`, employe);
+        return response.data;
+    },
+
+    deleteEmploye: async (id: number): Promise<void> => {
+        await api.delete(`/employes/${id}`);
+    },
+
+    searchEmployes: async (searchTerm: string): Promise<Employe[]> => {
+        const response = await api.get(`/employes/search?term=${encodeURIComponent(searchTerm)}`);
+        return response.data;
+    },
+
+    // Nouvelles méthodes pour la gestion des enfants
+    getEnfants: async (employeId: number): Promise<Enfant[]> => {
+        const response = await api.get(`/employes/${employeId}/enfants`);
+        return response.data;
+    },
+
+    saveEnfant: async (employeId: number, enfant: Enfant): Promise<Enfant> => {
+        const response = await api.post(`/employes/${employeId}/enfants`, enfant);
+        return response.data;
+    },
+
+    deleteEnfant: async (employeId: number, enfantId: number): Promise<void> => {
+        await api.delete(`/employes/${employeId}/enfants/${enfantId}`);
+    },
+
+    // Nouvelles méthodes pour la gestion des diplômes
+    getDiplomes: async (employeId: number): Promise<Diplome[]> => {
+        const response = await api.get(`/employes/${employeId}/diplomes`);
+        return response.data;
+    },
+
+    saveDiplome: async (employeId: number, diplome: Diplome): Promise<Diplome> => {
+        const response = await api.post(`/employes/${employeId}/diplomes`, diplome);
+        return response.data;
+    },
+
+    deleteDiplome: async (employeId: number, diplomeId: number): Promise<void> => {
+        await api.delete(`/employes/${employeId}/diplomes/${diplomeId}`);
+    },
+
+    // Méthodes pour l'historique professionnel
+    getHistorique: async (employeId: number): Promise<any[]> => {
+        const response = await api.get(`/employes/${employeId}/historique`);
+        return response.data;
+    },
+
+    saveHistorique: async (employeId: number, historique: any): Promise<any> => {
+        const response = await api.post(`/employes/${employeId}/historique`, historique);
+        return response.data;
+    },
+
+    updateHistorique: async (employeId: number, historiqueId: number, historique: any): Promise<any> => {
+        const response = await api.put(`/employes/${employeId}/historique/${historiqueId}`, historique);
+        return response.data;
+    },
+
+    deleteHistorique: async (employeId: number, historiqueId: number): Promise<void> => {
+        await api.delete(`/employes/${employeId}/historique/${historiqueId}`);
+    },
+
+
+    // Méthodes pour les compétences
+    getCompetences: async (employeId: number): Promise<any[]> => {
+        const response = await api.get(`/employes/${employeId}/competences`);
+        return response.data;
+    },
+
+    saveCompetence: async (employeId: number, competence: any): Promise<any> => {
+        const response = await api.post(`/employes/${employeId}/competences`, competence);
+        return response.data;
+    },
+
+    updateCompetence: async (employeId: number, competenceId: number, competence: any): Promise<any> => {
+        const response = await api.put(`/employes/${employeId}/competences/${competenceId}`, competence);
+        return response.data;
+    },
+
+    deleteCompetence: async (employeId: number, competenceId: number): Promise<void> => {
+        await api.delete(`/employes/${employeId}/competences/${competenceId}`);
+    },
+
+    // Méthodes pour les formations
+    getFormations: async (employeId: number): Promise<any[]> => {
+        const response = await api.get(`/employes/${employeId}/formations`);
+        return response.data;
+    },
+
+    saveFormation: async (employeId: number, formation: any): Promise<any> => {
+        const response = await api.post(`/employes/${employeId}/formations`, formation);
+        return response.data;
+    },
+
+    updateFormation: async (employeId: number, formationId: number, formation: any): Promise<any> => {
+        const response = await api.put(`/employes/${employeId}/formations/${formationId}`, formation);
+        return response.data;
+    },
+    deleteFormation: async (employeId: number, formationId: number): Promise<void> => {
+        await api.delete(`/employes/${employeId}/formations/${formationId}`);
+    },
+
+    // Méthodes pour les documents
+    getDocuments: async (employeId: number): Promise<Document[]> => {
+        const response = await api.get(`/employes/${employeId}/documents`);
+        return response.data;
+    },
+
+    uploadDocument: async (employeId: number, file: File, documentData: any): Promise<Document> => {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('nom', documentData.nom);
+        formData.append('typeDocument', documentData.typeDocument);
+        formData.append('description', documentData.description);
+
+        const response = await api.post(`/employes/${employeId}/documents`, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+        return response.data;
+    },
+
+    deleteDocument: async (employeId: number, documentId: number): Promise<void> => {
+        await api.delete(`/employes/${employeId}/documents/${documentId}`);
+    },
+
+    // Méthode pour l'export de l'état de service
+    exportEtatService: async (employeId: number): Promise<any> => {
+        const response = await api.get(`/employes/${employeId}/etat-service/export`, {
+            responseType: 'blob'
+        });
+        return response;
+    }
+
+};
+
+// Nouveau service d'authentification
+export const authService = {
+    login: async (credentials: { nom_utilisateur: string; mot_de_passe: string; remember: boolean }) => {
+        const response = await api.post('/auth/login', credentials);
+        return response.data;
+    },
+
+    register: async (userData: {
+        username: string;
+        password: string;
+        email: string;
+        nom: string;
+        prenom: string;
+        // Ajoutez d'autres champs nécessaires selon votre API
+    }) => {
+        const response = await api.post('/auth/register', userData);
+        return response.data;
+    },
+
+    getCurrentUser: async () => {
+        const response = await api.get('/auth/me');
+        return response.data;
+    },
+
+    logout: async () => {
+        await api.post('/auth/logout');
+    }
+};
+// Interfaces supplémentaires
+export interface Enfant {
+    id?: number;
+    nom: string;
+    dateNaissance: string;
+}
+
+export interface Diplome {
+    id?: number;
+    typeDiplome: string;
+    intitule: string;
+    ecole: string;
+    anneeObtention: string;
+}
+
+// CORRECTION : Utilisez demandeCongeService au lieu de DemandeCongeService
+export const demandeCongeService = {
+    getAllDemandes: async (): Promise<DemandeConge[]> => {
+        const response = await api.get('/demandes-conge');
+        return response.data;
+    },
+
+    getTypesConge: async (): Promise<TypeConge[]> => {
+        // CORRECTION : Utilisez l'endpoint correct
+        const response = await api.get('/types-conge');
+        return response.data;
+    },
+
+    createDemandeConge: async (demande: Omit<DemandeConge, 'id'>): Promise<DemandeConge> => {
+        const response = await api.post('/demandes-conge', demande);
+        return response.data;
+    },
+
+    updateDemandeConge: async (id: number, demande: Partial<DemandeConge>): Promise<DemandeConge> => {
+        const response = await api.put(`/demandes-conge/${id}`, demande);
+        return response.data;
+    },
+
+    deleteDemandeConge: async (id: number): Promise<void> => {
+        await api.delete(`/demandes-conge/${id}`);
+    },
+
+    getDemandesByEmployeId: async (employeId: number): Promise<DemandeConge[]> => {
+        const response = await api.get(`/demandes-conge/employe/${employeId}`);
+        return response.data;
+    }
+};
+// Interfaces pour les nouvelles entités
+export interface Competence {
+    id?: number;
+    nom: string;
+    niveau: 'DEBUTANT' | 'INTERMEDIAIRE' | 'AVANCE' | 'EXPERT';
+    categorie: string;
+    dateAcquisition?: string;
+    employeId?: number;
+}
+
+export interface Formation {
+    id?: number;
+    intitule: string;
+    organisme: string;
+    dateDebut: string;
+    dateFin?: string;
+    dureeHeures?: number;
+    certificat?: string;
+    employeId?: number;
+}
+
+export interface HistoriquePoste {
+    id?: number;
+    poste: string;
+    organisation: string;
+    dateDebut: string;
+    dateFin?: string;
+    salairePleinTemps?: number;
+    pourcentageSalaire?: number;
+    salaireBase100?: number;
+    employeId?: number;
+}
+
+export interface Document {
+    id?: number;
+    nom: string;
+    typeDocument: string;
+    description?: string;
+    cheminFichier: string;
+    dateUpload: string;
+    employeId?: number;
+}
+
+export default api;
