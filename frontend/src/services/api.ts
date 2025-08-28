@@ -228,17 +228,17 @@ export const employeService = {
     },
 
     // Méthodes pour l'historique professionnel
-    getHistorique: async (employeId: number): Promise<any[]> => {
+    getHistorique: async (employeId: number): Promise<HistoriquePoste[]> => {
         const response = await api.get(`/employes/${employeId}/historique`);
         return response.data;
     },
 
-    saveHistorique: async (employeId: number, historique: any): Promise<any> => {
+    saveHistorique: async (employeId: number, historique: HistoriquePoste): Promise<HistoriquePoste> => {
         const response = await api.post(`/employes/${employeId}/historique`, historique);
         return response.data;
     },
 
-    updateHistorique: async (employeId: number, historiqueId: number, historique: any): Promise<any> => {
+    updateHistorique: async (employeId: number, historiqueId: number, historique: HistoriquePoste): Promise<HistoriquePoste> => {
         const response = await api.put(`/employes/${employeId}/historique/${historiqueId}`, historique);
         return response.data;
     },
@@ -247,6 +247,13 @@ export const employeService = {
         await api.delete(`/employes/${employeId}/historique/${historiqueId}`);
     },
 
+// Méthode pour l'export de l'état de service
+    exportEtatService: async (employeId: number): Promise<any> => {
+        const response = await api.get(`/employes/${employeId}/etat-service/export`, {
+            responseType: 'blob'
+        });
+        return response;
+    },
 
     // Méthodes pour les compétences
     getCompetences: async (employeId: number): Promise<any[]> => {
@@ -288,17 +295,25 @@ export const employeService = {
     },
 
     // Méthodes pour les documents
-    getDocuments: async (employeId: number): Promise<Document[]> => {
-        const response = await api.get(`/employes/${employeId}/documents`);
-        return response.data;
-    },
-
-    uploadDocument: async (employeId: number, file: File, documentData: any): Promise<Document> => {
+    uploadDocument: async (employeId: number, file: File, documentData: any): Promise<any> => {
         const formData = new FormData();
         formData.append('file', file);
         formData.append('nom', documentData.nom);
         formData.append('typeDocument', documentData.typeDocument);
-        formData.append('description', documentData.description);
+
+        // Ajouter description seulement si elle existe
+        if (documentData.description) {
+            formData.append('description', documentData.description);
+        }
+
+        console.log('Envoi des données:', {
+            employeId,
+            nom: documentData.nom,
+            typeDocument: documentData.typeDocument,
+            description: documentData.description,
+            fileName: file.name,
+            fileSize: file.size
+        });
 
         const response = await api.post(`/employes/${employeId}/documents`, formData, {
             headers: {
@@ -308,16 +323,13 @@ export const employeService = {
         return response.data;
     },
 
-    deleteDocument: async (employeId: number, documentId: number): Promise<void> => {
-        await api.delete(`/employes/${employeId}/documents/${documentId}`);
+    getDocuments: async (employeId: number): Promise<Document[]> => {
+        const response = await api.get(`/employes/${employeId}/documents`);
+        return response.data;
     },
 
-    // Méthode pour l'export de l'état de service
-    exportEtatService: async (employeId: number): Promise<any> => {
-        const response = await api.get(`/employes/${employeId}/etat-service/export`, {
-            responseType: 'blob'
-        });
-        return response;
+    deleteDocument: async (employeId: number, documentId: number): Promise<void> => {
+        await api.delete(`/employes/${employeId}/documents/${documentId}`);
     }
 
 };
@@ -378,7 +390,14 @@ export const demandeCongeService = {
         return response.data;
     },
 
-    createDemandeConge: async (demande: Omit<DemandeConge, 'id'>): Promise<DemandeConge> => {
+    createDemandeConge: async (demande: {
+        employeId: number;
+        typeCongeId: number;
+        dateDebut: string;
+        dateFin: string;
+        motif: string;
+        statut: string
+    }): Promise<DemandeConge> => {
         const response = await api.post('/demandes-conge', demande);
         return response.data;
     },
@@ -390,6 +409,10 @@ export const demandeCongeService = {
 
     deleteDemandeConge: async (id: number): Promise<void> => {
         await api.delete(`/demandes-conge/${id}`);
+    },
+    updateDemandeCongeMotif: async (id: number, motif: string): Promise<DemandeConge> => {
+        const response = await api.patch(`/demandes-conge/${id}/motif`, { motif });
+        return response.data;
     },
 
     getDemandesByEmployeId: async (employeId: number): Promise<DemandeConge[]> => {
@@ -440,4 +463,33 @@ export interface Document {
     employeId?: number;
 }
 
+// CORRECTION : Implémenter correctement le service des types de congé
+export const typeCongeService = {
+    getAllTypesConge: async (): Promise<TypeConge[]> => {
+        const response = await api.get('/types-conge');
+        return response.data;
+    },
+
+    getTypeCongeById: async (id: number): Promise<TypeConge> => {
+        const response = await api.get(`/types-conge/${id}`);
+        return response.data;
+    },
+
+    createTypeConge: async (typeConge: Omit<TypeConge, 'id'>): Promise<TypeConge> => {
+        const response = await api.post('/types-conge', typeConge);
+        return response.data;
+    },
+
+    updateTypeConge: async (id: number, typeConge: Partial<TypeConge>): Promise<TypeConge> => {
+        const response = await api.put(`/types-conge/${id}`, typeConge);
+        return response.data;
+    },
+
+    deleteTypeConge: async (id: number): Promise<void> => {
+        await api.delete(`/types-conge/${id}`);
+    }
+};
+
+
 export default api;
+

@@ -1,40 +1,31 @@
-import React, { useState, useEffect } from 'react';
-import { Upload, Download, Trash2, FileText, Search, User } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Upload, Download, Trash2, FileText, Search, User, AlertCircle } from 'lucide-react';
 import { employeService, type Employe } from '../services/api';
 
-interface Document {
-    body: any;
+// Interface qui correspond au type retourné par l'API
+interface EmployeDocument {
     id?: number;
     nom: string;
     typeDocument: string;
-    description: string;
+    description?: string; // Rendons description optionnelle pour correspondre à l'API
     dateUpload: string;
     cheminFichier: string;
-
-    createElement(a1: string): string;
+    tailleFichier?: number;
 }
 
 const Documents: React.FC = () => {
     const [employes, setEmployes] = useState<Employe[]>([]);
     const [selectedEmploye, setSelectedEmploye] = useState<Employe | null>(null);
-    const [documents, setDocuments] = useState<Document[]>([]);
+    const [documents, setDocuments] = useState<EmployeDocument[]>([]);
     const [showUploadForm, setShowUploadForm] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
-        loadEmployes();
-    }, []);
-
-    useEffect(() => {
-        if (selectedEmploye) {
-            loadDocuments();
-        }
-    }, [selectedEmploye]);
-
-    const loadEmployes = async () => {
+    const loadEmployes = useCallback(async () => {
         try {
+            setError(null);
             const data = await employeService.getAllEmployes();
             setEmployes(data);
             if (data.length > 0 && !selectedEmploye) {
@@ -42,31 +33,101 @@ const Documents: React.FC = () => {
             }
         } catch (error) {
             console.error('Erreur chargement employés:', error);
+            setError('Erreur lors du chargement des employés');
         } finally {
             setLoading(false);
         }
-    };
+    }, [selectedEmploye]);
 
-    const loadDocuments = async () => {
+    const loadDocuments = useCallback(async () => {
         if (!selectedEmploye) return;
         try {
+            setError(null);
             const data = await employeService.getDocuments(selectedEmploye.id);
-            // @ts-ignore
-            setDocuments(data);
+            // Conversion explicite du type pour correspondre à EmployeDocument
+            const formattedData: EmployeDocument[] = data.map((doc: any) => ({
+                id: doc.id,
+                nom: doc.nom,
+                typeDocument: doc.typeDocument,
+                description: doc.description || '', // Fournir une valeur par défaut si undefined
+                dateUpload: doc.dateUpload,
+                cheminFichier: doc.cheminFichier,
+                tailleFichier: doc.tailleFichier
+            }));
+            setDocuments(formattedData);
         } catch (error) {
             console.error('Erreur chargement documents:', error);
+            setError('Erreur lors du chargement des documents');
         }
-    };
+    }, [selectedEmploye]);
 
-    const handleUpload = async (file: File, documentData: Omit<Document, 'id' | 'dateUpload' | 'cheminFichier'>) => {
-        if (!selectedEmploye) return;
-        setUploading(true);
-        try {
-            await employeService.uploadDocument(selectedEmploye.id, file, documentData);
-            setShowUploadForm(false);
+    useEffect(() => {
+        loadEmployes();
+    }, [loadEmployes]);
+
+    useEffect(() => {
+        if (selectedEmploye) {
             loadDocuments();
-        } catch (error) {
-            console.error('Erreur upload document:', error);
+        }
+    }, [selectedEmploye, loadDocuments]);
+
+    const handleUpload = async (file: File, documentData: Omit<EmployeDocument, 'id' | 'dateUpload' | 'cheminFichier'>) => {
+        if (!selectedEmploye) return;
+
+        console.log('Début upload:', {
+            employeId: selectedEmploye.id,
+            file: file.name,
+            fileSize: file.size,
+            fileType: file.type,
+            documentData
+        });
+
+        // Validation du fichier
+        const maxSize = 10 * 1024 * 1024; // 10MB
+        if (file.size > maxSize) {
+            setError('Le fichier est trop volumineux (max 10MB)');
+            return;
+        }
+
+        const allowedTypes = [
+            'application/pdf',
+            'image/jpeg',
+            'image/png',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        ];
+
+        if (!allowedTypes.includes(file.type)) {
+            setError('Type de fichier non autorisé. Types autorisés: PDF, JPEG, PNG, DOC, DOCX');
+            return;
+        }
+
+        setUploading(true);
+        setError(null);
+
+        try {
+            console.log('Appel API upload...');
+            await employeService.uploadDocument(selectedEmploye.id, file, {
+                ...documentData,
+                description: documentData.description || ''
+            });
+
+            console.log('Upload réussi');
+            setShowUploadForm(false);
+            await loadDocuments();
+
+        } catch (error: any) {
+            console.error('Erreur détaillée upload:', error);
+
+            // Afficher plus de détails sur l'erreur
+            if (error.response?.data) {
+                console.error('Réponse erreur:', error.response.data);
+                setError(`Erreur serveur: ${JSON.stringify(error.response.data)}`);
+            } else if (error.code === 'ERR_NETWORK') {
+                setError('Erreur de connexion au serveur. Vérifiez que le serveur est démarré.');
+            } else {
+                setError('Erreur lors de l\'upload du document: ' + error.message);
+            }
         } finally {
             setUploading(false);
         }
@@ -76,28 +137,39 @@ const Documents: React.FC = () => {
         if (!selectedEmploye) return;
         if (window.confirm('Êtes-vous sûr de vouloir supprimer ce document ?')) {
             try {
+                setError(null);
                 await employeService.deleteDocument(selectedEmploye.id, id);
-                loadDocuments();
+                await loadDocuments();
             } catch (error) {
                 console.error('Erreur suppression document:', error);
+                setError('Erreur lors de la suppression du document');
             }
         }
     };
 
-    const handleDownload = async (document: Document) => {
+    const handleDownload = async (document: EmployeDocument) => {
         try {
-            const response = await fetch(`http://localhost:8080/uploads/${document.cheminFichier}`);
+            setError(null);
+            const response = await fetch(`http://localhost:8080/api/uploads/${document.cheminFichier}`);
+
+            if (!response.ok) {
+                throw new Error('Fichier non trouvé');
+            }
+
             const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a') as unknown as HTMLAnchorElement;
+
+            // Utiliser window.document au lieu de document pour éviter le conflit
+            const a = window.document.createElement('a');
             a.href = url;
             a.download = document.nom;
-            document.body.appendChild(a);
+            window.document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
+            window.document.body.removeChild(a);
         } catch (error) {
             console.error('Erreur téléchargement:', error);
+            setError('Erreur lors du téléchargement du document');
         }
     };
 
@@ -110,6 +182,14 @@ const Documents: React.FC = () => {
             case 'CERTIFICAT': return '🏆';
             default: return '📁';
         }
+    };
+
+    const formatFileSize = (bytes: number = 0): string => {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     };
 
     const filteredEmployes = employes.filter(emp =>
@@ -133,6 +213,15 @@ const Documents: React.FC = () => {
 
     return (
         <div className="space-y-6">
+            {error && (
+                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
+                    <div className="flex items-center">
+                        <AlertCircle className="h-5 w-5 mr-2" />
+                        {error}
+                    </div>
+                </div>
+            )}
+
             <div className="sm:flex sm:items-center sm:justify-between">
                 <div>
                     <h2 className="text-3xl font-bold text-gray-900">Gestion des documents</h2>
@@ -221,7 +310,7 @@ const Documents: React.FC = () => {
                                 </div>
                                 <button
                                     onClick={() => setShowUploadForm(true)}
-                                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                                 >
                                     <Upload className="w-4 h-4 mr-2" />
                                     Uploader
@@ -243,7 +332,7 @@ const Documents: React.FC = () => {
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {filteredDocuments.map((document) => (
-                                    <div key={document.id} className="border rounded-lg p-4">
+                                    <div key={document.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
                                         <div className="flex items-start justify-between mb-3">
                                             <div className="flex items-center">
                                                 <span className="text-2xl mr-3">{getDocumentTypeIcon(document.typeDocument)}</span>
@@ -255,15 +344,17 @@ const Documents: React.FC = () => {
                                             <div className="flex space-x-2">
                                                 <button
                                                     onClick={() => handleDownload(document)}
-                                                    className="text-blue-600 hover:text-blue-800"
+                                                    className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50 transition-colors"
                                                     title="Télécharger"
+                                                    aria-label="Télécharger le document"
                                                 >
                                                     <Download className="w-4 h-4" />
                                                 </button>
                                                 <button
                                                     onClick={() => handleDelete(document.id!)}
-                                                    className="text-red-600 hover:text-red-800"
+                                                    className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50 transition-colors"
                                                     title="Supprimer"
+                                                    aria-label="Supprimer le document"
                                                 >
                                                     <Trash2 className="w-4 h-4" />
                                                 </button>
@@ -272,9 +363,16 @@ const Documents: React.FC = () => {
                                         {document.description && (
                                             <p className="text-sm text-gray-600 mb-2">{document.description}</p>
                                         )}
-                                        <p className="text-xs text-gray-500">
-                                            Uploadé le: {new Date(document.dateUpload).toLocaleDateString('fr-FR')}
-                                        </p>
+                                        <div className="flex justify-between items-center">
+                                            <p className="text-xs text-gray-500">
+                                                Uploadé le: {new Date(document.dateUpload).toLocaleDateString('fr-FR')}
+                                            </p>
+                                            {document.tailleFichier && (
+                                                <span className="text-xs text-gray-400">
+                                                    {formatFileSize(document.tailleFichier)}
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
                                 ))}
                                 {filteredDocuments.length === 0 && (
@@ -343,30 +441,40 @@ const UploadForm: React.FC<{
                 <h3 className="text-lg font-medium mb-4">Uploader un document</h3>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Fichier</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Fichier *
+                        </label>
                         <input
                             type="file"
                             required
                             onChange={handleFileChange}
                             className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                            aria-required="true"
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Nom du document</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Nom du document *
+                        </label>
                         <input
                             type="text"
                             required
                             value={formData.nom}
                             onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
                             className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                            aria-required="true"
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Type de document</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Type de document *
+                        </label>
                         <select
                             value={formData.typeDocument}
                             onChange={(e) => setFormData({ ...formData, typeDocument: e.target.value })}
                             className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                            aria-required="true"
                         >
                             <option value="CV">CV</option>
                             <option value="DIPLOME">Diplôme</option>
@@ -377,14 +485,16 @@ const UploadForm: React.FC<{
                             <option value="ORDINATION">Ordination</option>
                             <option value="ATTESTATION_TRAVAIL">Attestation de travail</option>
                             <option value="BULLETIN_PAIE">Bulletin de paie</option>
-                            <option value="CNI">CNI</option>
-                            <option value="CNPS">CNPS</option>
+                            <option value="CIN">CNI</option>
+                            <option value="CNAPS">CNPS</option>
                             <option value="OSTIE">OSTIE</option>
                             <option value="AUTRE">Autre</option>
                         </select>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Description</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Description
+                        </label>
                         <textarea
                             value={formData.description}
                             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -396,14 +506,15 @@ const UploadForm: React.FC<{
                         <button
                             type="button"
                             onClick={onClose}
-                            className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                            className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                            disabled={uploading}
                         >
                             Annuler
                         </button>
                         <button
                             type="submit"
                             disabled={uploading || !file}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                         >
                             {uploading ? 'Upload...' : 'Uploader'}
                         </button>

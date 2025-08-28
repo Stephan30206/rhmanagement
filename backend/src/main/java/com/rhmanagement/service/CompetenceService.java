@@ -1,4 +1,3 @@
-// CompetenceService.java
 package com.rhmanagement.service;
 
 import com.rhmanagement.entity.Competence;
@@ -15,8 +14,9 @@ public class CompetenceService {
     @Autowired
     private CompetenceRepository competenceRepository;
 
+    // CORRECTION : Changement de findByEmployeId à findByEmploye_Id
     public List<Competence> getCompetencesByEmployeId(Long employeId) {
-        return competenceRepository.findByEmployeId(employeId);
+        return competenceRepository.findByEmploye_Id(employeId);
     }
 
     public Optional<Competence> getCompetenceById(Long id) {

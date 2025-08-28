@@ -40,7 +40,18 @@ public class HistoriquePoste {
     @Column(name = "salaire_base_100", columnDefinition = "DECIMAL(10,2)")
     private BigDecimal salaireBase100;
 
+    @Column(name = "employe_id", nullable = false)
+    private Long employeId;
+
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "employe_id", nullable = false)
+    @JoinColumn(name = "employe_id", insertable = false, updatable = false)
     private Employe employe;
+
+    // Méthode pour calculer le salaire effectif
+    public BigDecimal getSalaireEffectif() {
+        if (salairePleinTemps == null || pourcentageSalaire == null) {
+            return BigDecimal.ZERO;
+        }
+        return salairePleinTemps.multiply(pourcentageSalaire.divide(BigDecimal.valueOf(100)));
+    }
 }

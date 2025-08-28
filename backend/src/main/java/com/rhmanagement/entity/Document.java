@@ -1,5 +1,7 @@
 package com.rhmanagement.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -29,21 +31,25 @@ public class Document {
     private String cheminFichier;
 
     @Column(columnDefinition = "TEXT")
-    private String description;
+    private String description; // Peut être null
 
     @Column(name = "date_upload")
     private LocalDate dateUpload = LocalDate.now();
 
-    @Column(name = "uploaded_by", length = 100)
-    private String uploadedBy;
-
+    // Correction du mapping ManyToOne
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "employe_id", nullable = false)
+    @JoinColumn(name = "employe_id", nullable = false) // Ceci crée la colonne employe_id
+    @JsonIgnore
     private Employe employe;
 
     public enum TypeDocument {
         CV, DIPLOME, CERTIFICAT, CONTRAT, PHOTO, LETTRE_CREANCE,
-        ORDINATION, ATTESTATION_TRAVAIL, BULLETIN_PAIE, CNI,
-        CNPS, OSTIE, AUTRE
+        ORDINATION, ATTESTATION_TRAVAIL, BULLETIN_PAIE, CIN,
+        CNAPS, OSTIE, AUTRE
+    }
+
+    @PrePersist
+    protected void onCreate() {
+        this.dateUpload = LocalDate.now();
     }
 }

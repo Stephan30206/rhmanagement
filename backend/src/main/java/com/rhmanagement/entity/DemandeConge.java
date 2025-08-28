@@ -13,19 +13,14 @@ import java.time.LocalDateTime;
 @Table(name = "demandesconge")
 public class DemandeConge {
 
-    private final LocalDateTime dateCreation;
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "employeId", nullable = false)
+    @Column(name = "employe_id", nullable = false)
     private Long employeId;
 
-    // getters et setters
-    @Column(name = "annee")
-    private int annee;
-
-    @Column(name = "typeCongeId", nullable = false)
+    @Column(name = "type_conge_id", nullable = false)
     private Integer typeCongeId;
 
     @Column(name = "date_debut", nullable = false)
@@ -35,50 +30,45 @@ public class DemandeConge {
     private LocalDate dateFin;
 
     @Column(name = "motif", columnDefinition = "TEXT")
-    private String motif;
+    private String motif; // ← Ceci est un String, pas un null
 
     @Enumerated(EnumType.STRING)
     @Column(name = "statut", nullable = false)
     private StatutDemande statut;
 
-    @Column(name = "approuvePar")
+    @Column(name = "approuve_par")
     private Long approuvePar;
 
-    @Column(name = "dateTraitement")
+    @Column(name = "date_traitement")
     private LocalDateTime dateTraitement;
 
-    @Column(name = "motifRejet", columnDefinition = "TEXT")
+    @Column(name = "motif_rejet", columnDefinition = "TEXT")
     private String motifRejet;
 
-    public int getJoursDemandes() {
-        return 0;
-    }
+    @Column(name = "date_creation", nullable = false, updatable = false)
+    private LocalDateTime dateCreation;
 
+    @Column(name = "annee", nullable = false)
+    private Integer annee;
 
-    // Relations JPA optionnelles (commentées pour éviter les erreurs)
-    /*
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "employeId", insertable = false, updatable = false)
-    private Employe employe;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "typeCongeId", insertable = false, updatable = false)
-    private TypeConge typeConge;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "approuvePar", insertable = false, updatable = false)
-    private Employe approbateur;
-    */
+    @Transient
+    private int joursDemandes;
 
     // Enum pour le statut
     public enum StatutDemande {
         EN_ATTENTE, APPROUVE, REJETE, ANNULE
     }
 
-    // Constructeurs
-    public DemandeConge() {
+    // Initialisation automatique AVANT INSERTION
+    @PrePersist
+    protected void onCreate() {
         this.dateCreation = LocalDateTime.now();
-        this.statut = StatutDemande.EN_ATTENTE;
+        if (this.statut == null) {
+            this.statut = StatutDemande.EN_ATTENTE;
+        }
+        if (this.annee == null) {
+            this.annee = LocalDate.now().getYear();
+        }
     }
 
     // Méthode utilitaire pour calculer le nombre de jours

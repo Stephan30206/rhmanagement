@@ -50,6 +50,7 @@ const EtatService: React.FC = () => {
         if (!selectedEmploye) return;
         try {
             const data = await employeService.getHistorique(selectedEmploye.id);
+            // @ts-ignore
             setHistorique(data);
         } catch (error) {
             console.error('Erreur chargement historique:', error);

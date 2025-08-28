@@ -1,4 +1,3 @@
-// CompetenceController.java
 package com.rhmanagement.controller;
 
 import com.rhmanagement.entity.Competence;
@@ -32,7 +31,11 @@ public class CompetenceController {
 
     @PostMapping
     public ResponseEntity<Competence> createCompetence(@PathVariable Long employeId, @RequestBody Competence competence) {
-        competence.setEmployeId(employeId);
+        // Créer la relation avec l'employé au lieu d'utiliser employeId
+        com.rhmanagement.entity.Employe employe = new com.rhmanagement.entity.Employe();
+        employe.setId(employeId);
+        competence.setEmploye(employe);
+
         Competence savedCompetence = competenceService.saveCompetence(competence);
         return ResponseEntity.ok(savedCompetence);
     }

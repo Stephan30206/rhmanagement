@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -33,19 +34,23 @@ public class Competence {
     @Column(name = "date_acquisition")
     private LocalDate dateAcquisition;
 
-    @Column(name = "employe_id", nullable = false)
-    private Long employeId;
-
+    // CORRECTION : Supprimer employeId et utiliser seulement la relation
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "employe_id", insertable = false, updatable = false)
+    @JoinColumn(name = "employe_id", nullable = false)
+    @JsonIgnore // Éviter la récursion infinie dans la sérialisation JSON
     private Employe employe;
 
     public enum Niveau {
         DEBUTANT, INTERMEDIAIRE, AVANCE, EXPERT
     }
 
+    // Méthode de commodité pour obtenir l'ID de l'employé via la relation
+    public Long getEmployeId() {
+        return employe != null ? employe.getId() : null;
+    }
+
     /**
-     * Méthode pour définir la date d'acquisition avec gestion des différents types d'entrée
+     * Méthode pour définir la date d'acquisition avec gestion de différents types d'entrée
      * @param dateAcquisition Peut être LocalDate, String (format ISO), ou null
      */
     public void setDateAcquisition(Object dateAcquisition) {
@@ -71,7 +76,7 @@ public class Competence {
                 this.dateAcquisition = LocalDate.parse(dateString);
             } catch (DateTimeParseException e1) {
                 try {
-                    // Tentative avec d'autres formats communs
+                    // Tentative avec d'autres formats courants
                     DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
                     this.dateAcquisition = LocalDate.parse(dateString, formatter);
                 } catch (DateTimeParseException e2) {
@@ -79,7 +84,7 @@ public class Competence {
                         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy");
                         this.dateAcquisition = LocalDate.parse(dateString, formatter);
                     } catch (DateTimeParseException e3) {
-                        throw new IllegalArgumentException("Format de date non supporté: " + dateString +
+                        throw new IllegalArgumentException("Format de date non supporté : " + dateString +
                                 ". Utilisez le format YYYY-MM-DD, dd/MM/yyyy ou MM/dd/yyyy");
                     }
                 }
@@ -87,61 +92,13 @@ public class Competence {
             return;
         }
 
-        throw new IllegalArgumentException("Type non supporté pour dateAcquisition: " +
+        throw new IllegalArgumentException("Type non supporté pour dateAcquisition : " +
                 dateAcquisition.getClass().getName());
-    }
-
-    /*
-     Méthode pour définir l'ID de l'employé avec validation
-     @param employeId ID de l'employé (doit être non null et positif)
-     */
-    public void setEmployeId(Long employeId) {
-        if (employeId == null) {
-            throw new IllegalArgumentException("L'ID de l'employé ne peut pas être null");
-        }
-
-        if (employeId <= 0) {
-            throw new IllegalArgumentException("L'ID de l'employé doit être un nombre positif");
-        }
-
-        this.employeId = employeId;
-    }
-
-    /**
-     * Surcharge de setEmployeId pour accepter aussi les Integer et String
-     * @param employeId ID de l'employé sous différentes formes
-     */
-    public void setEmployeId(Object employeId) {
-        if (employeId == null) {
-            throw new IllegalArgumentException("L'ID de l'employé ne peut pas être null");
-        }
-
-        if (employeId instanceof Long) {
-            setEmployeId((Long) employeId);
-            return;
-        }
-
-        if (employeId instanceof Integer) {
-            setEmployeId(((Integer) employeId).longValue());
-            return;
-        }
-
-        if (employeId instanceof String) {
-            try {
-                setEmployeId(Long.parseLong((String) employeId));
-            } catch (NumberFormatException e) {
-                throw new IllegalArgumentException("L'ID de l'employé doit être un nombre valide: " + employeId);
-            }
-            return;
-        }
-
-        throw new IllegalArgumentException("Type non supporté pour employeId: " +
-                employeId.getClass().getName());
     }
 
     /**
      * Méthode utilitaire pour obtenir la date formatée
-     * @return Date formatée en string ou null si non définie
+     * @return Date formatée en chaîne de caractères ou null si non définie
      */
     public String getDateAcquisitionFormatted() {
         if (dateAcquisition == null) {

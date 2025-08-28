@@ -1,6 +1,8 @@
 package com.rhmanagement.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -16,6 +18,7 @@ import java.util.List;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Employe {
 
     @Id
@@ -152,9 +155,10 @@ public class Employe {
     @JsonIgnore
     private List<Formation> formations = new ArrayList<>();
 
-    @OneToMany(mappedBy = "employe", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    // Mapping inverse (optionnel, mais recommandé)
+    @OneToMany(mappedBy = "employe", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonIgnore
-    private List<Document> documents = new ArrayList<>();
+    private List<Document> documents;
 
     @Column(name = "date_creation", updatable = false)
     private LocalDate dateCreation = LocalDate.now();
