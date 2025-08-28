@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Edit, Mail, Phone, MapPin, User, Briefcase, Download, History } from 'lucide-react';
+import { X, Edit, Mail, Phone, MapPin, User, Briefcase, Download, History, GraduationCap, Users, Shield, Calendar } from 'lucide-react';
 import { type Employe, employeService } from '../services/api';
 
 interface EmployeDetailsProps {
@@ -11,6 +11,8 @@ interface EmployeDetailsProps {
 const EmployeDetails: React.FC<EmployeDetailsProps> = ({ employe, onClose, onEdit }) => {
     const [details, setDetails] = useState<Employe | null>(null);
     const [historique, setHistorique] = useState<any[]>([]);
+    const [enfants, setEnfants] = useState<any[]>([]);
+    const [diplomes, setDiplomes] = useState<any[]>([]);
     const [showHistorique, setShowHistorique] = useState(false);
 
     useEffect(() => {
@@ -22,6 +24,15 @@ const EmployeDetails: React.FC<EmployeDetailsProps> = ({ employe, onClose, onEdi
                 // Charger l'historique professionnel
                 const historiqueData = await employeService.getHistorique(employe.id);
                 setHistorique(historiqueData);
+
+                // Charger les enfants
+                const enfantsData = await employeService.getEnfants(employe.id);
+                setEnfants(enfantsData);
+
+                // Charger les diplômes
+                const diplomesData = await employeService.getDiplomes(employe.id);
+                console.log('Diplômes chargés:', diplomesData);
+                setDiplomes(diplomesData);
             } catch (error) {
                 console.error('Erreur lors du chargement des détails:', error);
             }
@@ -60,9 +71,57 @@ const EmployeDetails: React.FC<EmployeDetailsProps> = ({ employe, onClose, onEdi
         }
     };
 
+    const getPosteName = (poste: string) => {
+        const postes = {
+            'PASTEUR_TITULAIRE': 'Pasteur titulaire',
+            'PASTEUR_ASSOCIE': 'Pasteur associé',
+            'EVANGELISTE': 'Évangéliste',
+            'ANCIEN': 'Ancien',
+            'MISSIONNAIRE': 'Missionnaire',
+            'ENSEIGNANT': 'Enseignant',
+            'SECRETAIRE_EXECUTIF': 'Secrétaire exécutif',
+            'TRESORIER': 'Trésorier',
+            'ASSISTANT_RH': 'Assistant RH',
+            'AUTRE': 'Autre'
+        };
+        return postes[poste as keyof typeof postes] || poste;
+    };
+
+    const getStatutMatrimonialName = (statut: string) => {
+        const statuts = {
+            'CELIBATAIRE': 'Célibataire',
+            'MARIE': 'Marié(e)',
+            'DIVORCE': 'Divorcé(e)',
+            'VEUF': 'Veuf/Veuve'
+        };
+        return statuts[statut as keyof typeof statuts] || statut;
+    };
+
+    const getContratName = (contrat: string) => {
+        const contrats = {
+            'CDI': 'CDI',
+            'CDD': 'CDD',
+            'STAGE': 'Stage',
+            'BENEVOLAT': 'Bénévolat'
+        };
+        return contrats[contrat as keyof typeof contrats] || contrat;
+    };
+
+    const getNiveauAccreditation = (niveau: string | undefined) => {
+        const niveaux = {
+            'LOCAL': 'Local',
+            'DISTRICT': 'District',
+            'FEDERATION': 'Fédération',
+            'UNION': 'Union',
+            'DIVISION': 'Division',
+            'CONFERENCE_GENERALE': 'Conférence générale'
+        };
+        return niveaux[niveau as keyof typeof niveaux] || niveau;
+    };
+
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="bg-white rounded-lg w-full max-w-6xl max-h-[90vh] overflow-y-auto">
                 {/* Header */}
                 <div className="flex items-center justify-between p-6 border-b">
                     <h2 className="text-2xl font-bold text-gray-900">Détails de l'employé</h2>
@@ -90,6 +149,7 @@ const EmployeDetails: React.FC<EmployeDetailsProps> = ({ employe, onClose, onEdi
                     </div>
                 </div>
 
+                {/* Photo de profil */}
                 <div className="flex items-center justify-center mb-6 mt-6">
                     {details.photoProfil ? (
                         <img
@@ -99,7 +159,7 @@ const EmployeDetails: React.FC<EmployeDetailsProps> = ({ employe, onClose, onEdi
                         />
                     ) : (
                         <div className="h-32 w-32 rounded-full bg-blue-500 flex items-center justify-center text-white text-4xl font-bold border-4 border-white shadow-lg">
-                            {details.prenom[0]}{details.nom[0]}
+                            {details.prenom?.[0]}{details.nom?.[0]}
                         </div>
                     )}
                 </div>
@@ -136,14 +196,14 @@ const EmployeDetails: React.FC<EmployeDetailsProps> = ({ employe, onClose, onEdi
                 )}
 
                 {/* Content */}
-                <div className="p-6 space-y-6">
+                <div className="p-6 space-y-8">
                     {/* Informations personnelles */}
                     <div>
                         <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
                             <User className="w-5 h-5 mr-2" />
                             Informations personnelles
                         </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             <div>
                                 <label className="text-sm font-medium text-gray-500">Nom complet</label>
                                 <p className="text-gray-900">{details.prenom} {details.nom}</p>
@@ -170,30 +230,65 @@ const EmployeDetails: React.FC<EmployeDetailsProps> = ({ employe, onClose, onEdi
                             </div>
                             <div>
                                 <label className="text-sm font-medium text-gray-500">Statut matrimonial</label>
-                                <p className="text-gray-900">{details.statutMatrimonial}</p>
+                                <p className="text-gray-900">{getStatutMatrimonialName(details.statutMatrimonial)}</p>
                             </div>
-                            {details.statutMatrimonial === 'MARIE' && (
-                                <>
-                                    <div>
-                                        <label className="text-sm font-medium text-gray-500">Date de mariage</label>
-                                        <p className="text-gray-900">{formatDate(details.dateMariage)}</p>
-                                    </div>
-                                    <div>
-                                        <label className="text-sm font-medium text-gray-500">Nom du conjoint</label>
-                                        <p className="text-gray-900">{details.nomConjoint || 'Non spécifié'}</p>
-                                    </div>
-                                    <div>
-                                        <label className="text-sm font-medium text-gray-500">Nombre d'enfants</label>
-                                        <p className="text-gray-900">{details.nombreEnfants || 0}</p>
-                                    </div>
-                                </>
-                            )}
                             <div>
                                 <label className="text-sm font-medium text-gray-500">Numéro CNAPS</label>
                                 <p className="text-gray-900">{details.numeroCNAPS || 'Non spécifié'}</p>
                             </div>
+                            <div>
+                                <label className="text-sm font-medium text-gray-500">Nom du père</label>
+                                <p className="text-gray-900">{details.nomPere || 'Non spécifié'}</p>
+                            </div>
+                            <div>
+                                <label className="text-sm font-medium text-gray-500">Nom de la mère</label>
+                                <p className="text-gray-900">{details.nomMere || 'Non spécifié'}</p>
+                            </div>
                         </div>
                     </div>
+
+                    {/* Informations familiales */}
+                    {details.statutMatrimonial === 'MARIE' && (
+                        <div>
+                            <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                                <Users className="w-5 h-5 mr-2" />
+                                Informations familiales
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <div>
+                                    <label className="text-sm font-medium text-gray-500">Date de mariage</label>
+                                    <p className="text-gray-900">{formatDate(details.dateMariage)}</p>
+                                </div>
+                                <div>
+                                    <label className="text-sm font-medium text-gray-500">Nom du conjoint</label>
+                                    <p className="text-gray-900">{details.nomConjoint || 'Non spécifié'}</p>
+                                </div>
+                                <div>
+                                    <label className="text-sm font-medium text-gray-500">Date de naissance du conjoint</label>
+                                    <p className="text-gray-900">{formatDate(details.dateNaissanceConjoint)}</p>
+                                </div>
+                                <div>
+                                    <label className="text-sm font-medium text-gray-500">Nombre d'enfants</label>
+                                    <p className="text-gray-900">{enfants.length || 0}</p>
+                                </div>
+                            </div>
+
+                            {/* Liste des enfants */}
+                            {enfants.length > 0 && (
+                                <div className="mt-4">
+                                    <h4 className="text-md font-medium text-gray-900 mb-3">Enfants</h4>
+                                    <div className="space-y-2">
+                                        {enfants.map((enfant, index) => (
+                                            <div key={index} className="bg-gray-50 p-3 rounded-md">
+                                                <p className="font-medium">{enfant.nom}</p>
+                                                <p className="text-sm text-gray-600">Né(e) le {formatDate(enfant.dateNaissance)}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     {/* Contact */}
                     <div>
@@ -201,7 +296,7 @@ const EmployeDetails: React.FC<EmployeDetailsProps> = ({ employe, onClose, onEdi
                             <Phone className="w-5 h-5 mr-2" />
                             Contact
                         </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             <div>
                                 <label className="text-sm font-medium text-gray-500">Téléphone</label>
                                 <p className="text-gray-900">{details.telephone || 'Non spécifié'}</p>
@@ -213,7 +308,7 @@ const EmployeDetails: React.FC<EmployeDetailsProps> = ({ employe, onClose, onEdi
                                     {details.email || 'Non spécifié'}
                                 </p>
                             </div>
-                            <div className="md:col-span-2">
+                            <div className="md:col-span-2 lg:col-span-3">
                                 <label className="text-sm font-medium text-gray-500">Adresse</label>
                                 <p className="text-gray-900 flex items-center">
                                     <MapPin className="w-4 h-4 mr-2" />
@@ -223,16 +318,74 @@ const EmployeDetails: React.FC<EmployeDetailsProps> = ({ employe, onClose, onEdi
                         </div>
                     </div>
 
+                    {/* Contact d'urgence */}
+                    <div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                            <Shield className="w-5 h-5 mr-2" />
+                            Contact d'urgence
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div>
+                                <label className="text-sm font-medium text-gray-500">Nom</label>
+                                <p className="text-gray-900">{details.contactUrgenceNom || 'Non spécifié'}</p>
+                            </div>
+                            <div>
+                                <label className="text-sm font-medium text-gray-500">Lien</label>
+                                <p className="text-gray-900">{details.contactUrgenceLien || 'Non spécifié'}</p>
+                            </div>
+                            <div>
+                                <label className="text-sm font-medium text-gray-500">Téléphone</label>
+                                <p className="text-gray-900">{details.contactUrgenceTelephone || 'Non spécifié'}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Diplômes et formations */}
+                    <div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                            <GraduationCap className="w-5 h-5 mr-2" />
+                            Diplômes et formations
+                        </h3>
+                        {diplomes.length > 0 ? (
+                            <div className="space-y-3">
+                                {diplomes.map((diplome, index) => (
+                                    <div key={index} className="bg-gray-50 p-4 rounded-md border-l-4 border-blue-500">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                                            <div>
+                                                <label className="text-sm font-medium text-gray-500">Type</label>
+                                                <p className="text-gray-900">{diplome.typeDiplome}</p>
+                                            </div>
+                                            <div>
+                                                <label className="text-sm font-medium text-gray-500">Intitulé</label>
+                                                <p className="text-gray-900">{diplome.intitule}</p>
+                                            </div>
+                                            <div>
+                                                <label className="text-sm font-medium text-gray-500">École/Université</label>
+                                                <p className="text-gray-900">{diplome.ecole || 'Non spécifiée'}</p>
+                                            </div>
+                                            <div>
+                                                <label className="text-sm font-medium text-gray-500">Année d'obtention</label>
+                                                <p className="text-gray-900">{diplome.anneeObtention || 'Non spécifiée'}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-gray-500 italic">Aucun diplôme enregistré</p>
+                        )}
+                    </div>
+
                     {/* Informations professionnelles */}
                     <div>
                         <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
                             <Briefcase className="w-5 h-5 mr-2" />
                             Informations professionnelles
                         </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             <div>
                                 <label className="text-sm font-medium text-gray-500">Poste</label>
-                                <p className="text-gray-900">{details.poste.replace('_', ' ')}</p>
+                                <p className="text-gray-900">{getPosteName(details.poste)}</p>
                             </div>
                             <div>
                                 <label className="text-sm font-medium text-gray-500">Statut</label>
@@ -242,30 +395,64 @@ const EmployeDetails: React.FC<EmployeDetailsProps> = ({ employe, onClose, onEdi
                             </div>
                             <div>
                                 <label className="text-sm font-medium text-gray-500">Type de contrat</label>
-                                <p className="text-gray-900">{details.typeContrat}</p>
+                                <p className="text-gray-900">{getContratName(details.typeContrat)}</p>
+                            </div>
+                            <div>
+                                <label className="text-sm font-medium text-gray-500">Organisation employeur</label>
+                                <p className="text-gray-900">{details.organisationEmployeur || 'Non spécifiée'}</p>
                             </div>
                             <div>
                                 <label className="text-sm font-medium text-gray-500">Date de début</label>
-                                <p className="text-gray-900">{details.dateDebut ? formatDate(details.dateDebut) : 'Non spécifiée'}</p>
+                                <p className="text-gray-900">{formatDate(details.dateDebut)}</p>
+                            </div>
+                            <div>
+                                <label className="text-sm font-medium text-gray-500">Date de fin</label>
+                                <p className="text-gray-900">{formatDate(details.dateFin)}</p>
                             </div>
                             <div>
                                 <label className="text-sm font-medium text-gray-500">Salaire base</label>
                                 <p className="text-gray-900">{details.salaireBase ? `${details.salaireBase.toLocaleString()} MGA` : 'Non spécifié'}</p>
                             </div>
                             <div>
-                                <label className="text-sm font-medium text-gray-500">Pourcentage</label>
+                                <label className="text-sm font-medium text-gray-500">Pourcentage salaire</label>
                                 <p className="text-gray-900">{details.pourcentageSalaire ? `${details.pourcentageSalaire}%` : 'Non spécifié'}</p>
+                            </div>
+                            <div>
+                                <label className="text-sm font-medium text-gray-500">Superviseur hiérarchique</label>
+                                <p className="text-gray-900">{details.superviseurHierarchique || 'Non spécifié'}</p>
                             </div>
                         </div>
                     </div>
 
-                    {/* Informations supplémentaires */}
+                    {/* Accréditation */}
+                    <div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                            <Calendar className="w-5 h-5 mr-2" />
+                            Accréditation
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div>
+                                <label className="text-sm font-medium text-gray-500">Date d'accréditation</label>
+                                <p className="text-gray-900">{formatDate(details.dateAccreditation)}</p>
+                            </div>
+                            <div>
+                                <label className="text-sm font-medium text-gray-500">Niveau d'accréditation</label>
+                                <p className="text-gray-900">{getNiveauAccreditation(details.niveauAccreditation)}</p>
+                            </div>
+                            <div>
+                                <label className="text-sm font-medium text-gray-500">Groupe d'accréditation</label>
+                                <p className="text-gray-900">{details.groupeAccreditation || 'Non spécifié'}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Affectation actuelle */}
                     {details.affectationActuelle && (
                         <div>
                             <h3 className="text-lg font-medium text-gray-900 mb-4">
                                 Affectation actuelle
                             </h3>
-                            <p className="text-gray-900">{details.affectationActuelle}</p>
+                            <p className="text-gray-900 bg-gray-50 p-3 rounded-md">{details.affectationActuelle}</p>
                         </div>
                     )}
                 </div>
