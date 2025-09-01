@@ -529,7 +529,7 @@ function App() {
                         >
                             {user?.photoProfil ? (
                                 <img
-                                    src={`http://localhost:8080/uploads/${user.photoProfil}`}
+                                    src={`http://localhost:5173/uploads/${user.photoProfil}`}
                                     alt={`${user.prenom} ${user.nom}`}
                                     className="h-9 w-9 rounded-full object-cover border-2 border-blue-400 shadow-sm"
                                 />
@@ -544,7 +544,8 @@ function App() {
                             </div>
                         </button>
 
-                        {/* Logo et nom FMC */}
+
+                        {/* Logo. et nom FMC */}
                         <div className="flex items-center space-x-3 bg-green-50 rounded-full px-3 py-2 border border-green-200">
                             {/* Logo FMC - votre logo personnalisé */}
                             <img
