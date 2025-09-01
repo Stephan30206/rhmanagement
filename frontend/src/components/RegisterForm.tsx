@@ -85,10 +85,46 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onRegister, onSwitchToLogin
             // Upload de la photo si elle existe
             if (photoFile && response.user.id) {
                 try {
-                    await userService.uploadPhoto(response.user.id, photoFile);
-                } catch (uploadError) {
-                    console.error('Erreur upload photo:', uploadError);
-                    setError('Compte créé mais erreur lors de l\'upload de la photo');
+                    // Délai pour s'assurer que le token est bien configuré
+                    await new Promise(resolve => setTimeout(resolve, 200));
+
+                    // Essayer différents noms de paramètre courants pour le backend Spring
+                    const paramNames = ['file', 'image', 'photo', 'avatar'];
+                    let uploadSuccess = false;
+
+                    for (const paramName of paramNames) {
+                        try {
+                            await userService.uploadPhotoWithParam(response.user.id, photoFile, paramName);
+                            uploadSuccess = true;
+                            console.log(`Photo uploadée avec succès avec le paramètre: ${paramName}`);
+                            break;
+                        } catch (paramError) {
+                            console.log(`Tentative avec paramètre ${paramName} a échoué, essai suivant...`);
+                        }
+                    }
+
+                    if (!uploadSuccess) {
+                        setError('Compte créé mais impossible d\'uploader la photo. Vous pourrez l\'ajouter plus tard dans votre profil.');
+                        // Stocker la photo en attente pour upload ultérieur
+                        localStorage.setItem('pending_photo', JSON.stringify({
+                            userId: response.user.id,
+                            photoData: photoPreview,
+                            fileName: photoFile.name
+                        }));
+                    }
+                } catch (uploadError: any) {
+                    console.error('Erreur upload photo détaillée:', uploadError.response?.data);
+                    const errorMessage = uploadError.response?.data?.message ||
+                        uploadError.response?.data?.error ||
+                        'Format ou taille invalide';
+                    setError('Compte créé mais erreur lors de l\'upload de la photo: ' + errorMessage);
+
+                    // Stocker la photo en attente malgré l'erreur
+                    localStorage.setItem('pending_photo', JSON.stringify({
+                        userId: response.user.id,
+                        photoData: photoPreview,
+                        fileName: photoFile.name
+                    }));
                 }
             }
 

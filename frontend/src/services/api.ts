@@ -336,9 +336,10 @@ export const employeService = {
 
 export const userService = {
     // Méthode d'upload de photo
-    uploadPhoto: async (userId: number, file: File): Promise<any> => {
+    // Ajoutez cette fonction dans userService
+    uploadPhotoWithParam: async (userId: number, file: File, paramName: string) => {
         const formData = new FormData();
-        formData.append('file', file);
+        formData.append(paramName, file);
 
         const response = await api.post(`/utilisateurs/${userId}/photo`, formData, {
             headers: {
@@ -349,6 +350,32 @@ export const userService = {
     },
 
     // Autres méthodes utilisateur
+
+    // Vaovao
+    uploadPhoto: async (userId: number, file: File): Promise<any> => {
+        const formData = new FormData();
+        formData.append('file', file); // Le backend attend 'file'
+
+        console.log('Upload photo utilisateur:', {
+            userId,
+            fileName: file.name,
+            fileSize: file.size,
+            fileType: file.type
+        });
+
+        try {
+            const response = await api.post(`/utilisateurs/${userId}/photo`, formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            });
+            return response.data;
+        } catch (error: any) {
+            console.error('Erreur upload photo:', error.response?.data);
+            throw error;
+        }
+    },
+
     getProfile: async (): Promise<any> => {
         const response = await api.get('/utilisateurs/profile');
         return response.data;
@@ -358,6 +385,7 @@ export const userService = {
         const response = await api.put('/utilisateurs/profile', userData);
         return response.data;
     }
+
 };
 
 // Dans services/api.ts
