@@ -56,7 +56,6 @@ const LoginForm: React.FC<LoginFormProps> = ({onLogin, onSwitchToRegister }) => 
                 <h1 className="text-xl font-bold">
                     <span className="text-2xl"></span>FMC
                 </h1>
-
                 <button
                     onClick={onSwitchToRegister}
                     className="text-sm hover:underline"

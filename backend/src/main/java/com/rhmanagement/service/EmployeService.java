@@ -1,6 +1,7 @@
 package com.rhmanagement.service;
 
 import com.rhmanagement.entity.Employe;
+import com.rhmanagement.entity.Enfant;
 import com.rhmanagement.repository.EmployeRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -13,6 +14,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -58,6 +60,7 @@ public class EmployeService {
         employe.setAdresse(employeDetails.getAdresse());
         employe.setTelephone(employeDetails.getTelephone());
         employe.setEmail(employeDetails.getEmail());
+        employe.setNumeroCNAPS(employeDetails.getNumeroCNAPS());
         employe.setStatutMatrimonial(employeDetails.getStatutMatrimonial());
         employe.setDateMariage(employeDetails.getDateMariage());
         employe.setContactUrgenceNom(employeDetails.getContactUrgenceNom());
@@ -177,5 +180,10 @@ public class EmployeService {
         }
 
         throw new RuntimeException("Employé non trouvé");
+    }
+
+    public List<Enfant> getEnfantsByEmployeId(Long employeId) {
+        Optional<Employe> employe = employeRepository.findById(employeId);
+        return employe.map(Employe::getEnfants).orElse(Collections.emptyList());
     }
 }

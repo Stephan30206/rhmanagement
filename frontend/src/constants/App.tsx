@@ -26,16 +26,11 @@ import EmployeForm from "../components/EmployeForm.tsx";
 import EmployeDetails from "../components/EmployeDetails.tsx";
 import {employeService, type Employe, demandeCongeService, type DemandeConge, authService} from '../services/api';
 import DemandeCongeForm from '../components/DemandeCongeForm';
-import LoginForm from '../components/LoginForm';
+import LoginForm from '../components/LoginForm.tsx';
+import RegisterForm from "../components/RegisterForm.tsx";
 import Documents from '../components/Documents';
 import Talents from '../components/Talents';
 import EtatService from '../components/EtatService';
-
-interface MenuItem {
-    id: string
-    name: string
-    icon: React.ComponentType<React.SVGProps<SVGSVGElement>>
-}
 
 // Error Boundary Component
 class ErrorBoundary extends React.Component<
@@ -82,6 +77,12 @@ class ErrorBoundary extends React.Component<
     }
 }
 
+interface MenuItem {
+    id: string
+    name: string
+    icon: React.ComponentType<React.SVGProps<SVGSVGElement>>
+}
+
 function App() {
     const [employes, setEmployes] = useState<Employe[]>([])
     const [sidebarOpen, setSidebarOpen] = useState<boolean>(false)
@@ -95,12 +96,19 @@ function App() {
     const [editingEmploye, setEditingEmploye] = useState<Employe | null>(null)
     const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false)
     const [user, setUser] = useState<any>(null)
+    const [showRegister, setShowRegister] = useState(false)
+    const [, setShowUserProfile] = useState(false)
 
     // Ensure employes is always an array
     const safeEmployes = React.useMemo(() => {
         return Array.isArray(employes) ? employes : [];
     }, [employes]);
 
+    const handleRegister = (userData: any) => {
+        setUser(userData);
+        setIsAuthenticated(true);
+        setShowRegister(false);
+    };
     useEffect(() => {
         checkAuth();
     }, [])
@@ -116,6 +124,7 @@ function App() {
             const token = localStorage.getItem('token');
             if (token) {
                 const userData = await authService.getCurrentUser();
+                // Assurez-vous que le backend renvoie toutes les informations
                 setUser(userData);
                 setIsAuthenticated(true);
             } else {
@@ -212,7 +221,8 @@ function App() {
         {id: 'conges', name: 'Congés', icon: Calendar},
         {id: 'documents', name: 'Documents', icon: FileText},
         {id: 'talents', name: 'Talents', icon: Award},
-        {id: 'etat-service', name: 'État de service', icon: BarChart3}
+        {id: 'etat-service', name: 'État de service', icon: BarChart3},
+        {id: 'profil', name: 'Mon Profil', icon: User}
     ]
 
     const Sidebar = () => (
@@ -226,7 +236,6 @@ function App() {
             <div className="flex items-center justify-between h-16 px-4 bg-blue-800">
                 {!sidebarCollapsed && (
                     <div className="flex items-center space-x-2">
-                        <img src="/logo-fmc.png" alt="Logo FMC" className="h-8 w-8"/>
                         <span className="text-xl font-semibold">RH FMC</span>
                     </div>
                 )}
@@ -287,6 +296,187 @@ function App() {
         </div>
     )
 
+    const Profil = () => {
+        if (!user) return null;
+
+        return (
+            <ErrorBoundary>
+                <div className="space-y-6">
+                    <div className="sm:flex sm:items-center sm:justify-between">
+                        <div>
+                            <h2 className="text-3xl font-bold text-gray-900">Mon Profil</h2>
+                            <p className="mt-2 text-sm text-gray-600">
+                                Informations personnelles et paramètres du compte
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+                        <div className="px-6 py-8">
+                            {/* En-tête avec photo */}
+                            <div className="flex items-center space-x-6 mb-8">
+                                {user.photoProfil ? (
+                                    <img
+                                        src={`http://localhost:8080/uploads/${user.photoProfil}`}
+                                        alt={user.username}
+                                        className="h-24 w-24 rounded-full object-cover border-4 border-blue-100"
+                                    />
+                                ) : (
+                                    <div className="h-24 w-24 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-3xl border-4 border-blue-100">
+                                        {user.username?.[0]?.toUpperCase() || 'A'}
+                                    </div>
+                                )}
+                                <div>
+                                    <h1 className="text-2xl font-bold text-gray-900">
+                                        {user.prenom} {user.nom}
+                                    </h1>
+                                    <p className="text-gray-600">@{user.username}</p>
+                                    <p className="text-sm text-gray-500 mt-1">{user.poste}</p>
+                                </div>
+                            </div>
+
+                            {/* Informations personnelles */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                                <div className="bg-blue-50 p-4 rounded-lg">
+                                    <h3 className="text-lg font-semibold text-blue-900 mb-4">Informations Personnelles</h3>
+
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-blue-700">Nom complet</label>
+                                            <p className="mt-1 text-sm text-gray-900">{user.prenom} {user.nom}</p>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-blue-700">Nom d'utilisateur</label>
+                                            <p className="mt-1 text-sm text-gray-900">{user.username}</p>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-blue-700">Email</label>
+                                            <p className="mt-1 text-sm text-gray-900">{user.email}</p>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-blue-700">Téléphone</label>
+                                            <p className="mt-1 text-sm text-gray-900">{user.telephone || 'Non renseigné'}</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="bg-green-50 p-4 rounded-lg">
+                                    <h3 className="text-lg font-semibold text-green-900 mb-4">Informations Professionnelles</h3>
+
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-green-700">Poste</label>
+                                            <p className="mt-1 text-sm text-gray-900">{user.poste || 'Non renseigné'}</p>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-green-700">Matricule</label>
+                                            <p className="mt-1 text-sm text-gray-900">{user.matricule || 'Non renseigné'}</p>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-green-700">Département</label>
+                                            <p className="mt-1 text-sm text-gray-900">{user.departement || 'Non renseigné'}</p>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-green-700">Statut</label>
+                                            <p className="mt-1 text-sm text-gray-900">
+                                            <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">
+                                                {user.statut || 'ACTIF'}
+                                            </span>
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Informations supplémentaires */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="bg-gray-50 p-4 rounded-lg">
+                                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Informations du Compte</h3>
+
+                                    <div className="space-y-3">
+                                        <div className="flex justify-between">
+                                            <span className="text-sm text-gray-600">Date de création</span>
+                                            <span className="text-sm text-gray-900">
+                                            {user.dateCreation ? new Date(user.dateCreation).toLocaleDateString('fr-FR') : 'Non disponible'}
+                                        </span>
+                                        </div>
+
+                                        <div className="flex justify-between">
+                                            <span className="text-sm text-gray-600">Dernière connexion</span>
+                                            <span className="text-sm text-gray-900">
+                                            {user.lastLogin ? new Date(user.lastLogin).toLocaleString('fr-FR') : 'Non disponible'}
+                                        </span>
+                                        </div>
+
+                                        <div className="flex justify-between">
+                                            <span className="text-sm text-gray-600">Rôle</span>
+                                            <span className="text-sm text-gray-900">{user.role || 'Utilisateur'}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="bg-yellow-50 p-4 rounded-lg">
+                                    <h3 className="text-lg font-semibold text-yellow-900 mb-4">Actions</h3>
+
+                                    <div className="space-y-3">
+                                        <button className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors text-sm">
+                                            <Edit className="h-4 w-4 inline mr-2" />
+                                            Modifier le profil
+                                        </button>
+
+                                        <button className="w-full bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700 transition-colors text-sm">
+                                            <Settings className="h-4 w-4 inline mr-2" />
+                                            Paramètres du compte
+                                        </button>
+
+                                        <button
+                                            onClick={handleLogout}
+                                            className="w-full bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 transition-colors text-sm"
+                                        >
+                                            <LogOut className="h-4 w-4 inline mr-2" />
+                                            Se déconnecter
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Statistiques (optionnel) */}
+                            {user.statistics && (
+                                <div className="mt-8 bg-indigo-50 p-4 rounded-lg">
+                                    <h3 className="text-lg font-semibold text-indigo-900 mb-4">Statistiques d'Activité</h3>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                        <div className="text-center">
+                                            <div className="text-2xl font-bold text-indigo-600">{user.statistics.employesGeres || 0}</div>
+                                            <div className="text-sm text-indigo-800">Employés gérés</div>
+                                        </div>
+                                        <div className="text-center">
+                                            <div className="text-2xl font-bold text-indigo-600">{user.statistics.congesApprouves || 0}</div>
+                                            <div className="text-sm text-indigo-800">Congés approuvés</div>
+                                        </div>
+                                        <div className="text-center">
+                                            <div className="text-2xl font-bold text-indigo-600">{user.statistics.documentsUploades || 0}</div>
+                                            <div className="text-sm text-indigo-800">Documents uploadés</div>
+                                        </div>
+                                        <div className="text-center">
+                                            <div className="text-2xl font-bold text-indigo-600">{user.statistics.activiteMensuelle || 0}</div>
+                                            <div className="text-sm text-indigo-800">Activité mensuelle</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </ErrorBoundary>
+        );
+    };
+
     const Header = () => (
         <header className="bg-white shadow-sm lg:static lg:overflow-y-visible">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -299,9 +489,7 @@ function App() {
                             >
                                 <Menu className="h-6 w-6"/>
                             </button>
-                            {sidebarCollapsed && (
-                                <img src="/frontend/src/constants/logo-fmc.png" alt="Logo FMC" className="h-8 w-8 ml-2"/>
-                            )}
+
                         </div>
                     </div>
                     <div className="min-w-0 flex-1 md:px-8 lg:px-0 xl:col-span-6">
@@ -335,17 +523,22 @@ function App() {
                             </button>
                             <div className="flex items-center">
                                 <span className="text-sm text-gray-700">Bienvenue, {user?.username || 'Admin'}</span>
-                                {user?.photoProfil ? (
-                                    <img
-                                        src={`http://localhost:8080/uploads/${user.photoProfil}`}
-                                        alt={user.username}
-                                        className="h-8 w-8 rounded-full ml-2"
-                                    />
-                                ) : (
-                                    <div className="h-8 w-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-xs ml-2">
-                                        {user?.username?.[0]?.toUpperCase() || 'A'}
-                                    </div>
-                                )}
+                                <button
+                                    onClick={() => setShowUserProfile(true)}
+                                    className="ml-2 cursor-pointer"
+                                >
+                                    {user?.photoProfil ? (
+                                        <img
+                                            src={`http://localhost:8080/uploads/${user.photoProfil}`}
+                                            alt={user.username}
+                                            className="h-8 w-8 rounded-full ml-2"
+                                        />
+                                    ) : (
+                                        <div className="h-8 w-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-xs ml-2">
+                                            {user?.username?.[0]?.toUpperCase() || 'A'}
+                                        </div>
+                                    )}
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -824,13 +1017,20 @@ function App() {
                 return <Talents/>
             case 'etat-service':
                 return <EtatService/>
+            case 'profil':
+                return <Profil/>
             default:
                 return <Dashboard/>
         }
     }
 
+    // Mise à jour: Correction de la condition d'authentification
     if (!isAuthenticated) {
-        return <LoginForm onLogin={handleLogin}/>;
+        if (showRegister) {
+            return <RegisterForm onRegister={handleRegister} onSwitchToLogin={() => setShowRegister(false)} />;
+        } else {
+            return <LoginForm onLogin={handleLogin} onSwitchToRegister={() => setShowRegister(true)} />;
+        }
     }
 
     return (

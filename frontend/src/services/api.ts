@@ -198,6 +198,7 @@ export const employeService = {
     },
 
     // Nouvelles méthodes pour la gestion des enfants
+    // Correction pour les méthodes enfants
     getEnfants: async (employeId: number): Promise<Enfant[]> => {
         const response = await api.get(`/employes/${employeId}/enfants`);
         return response.data;
@@ -212,7 +213,7 @@ export const employeService = {
         await api.delete(`/employes/${employeId}/enfants/${enfantId}`);
     },
 
-    // Nouvelles méthodes pour la gestion des diplômes
+    // Correction pour les méthodes diplômes
     getDiplomes: async (employeId: number): Promise<Diplome[]> => {
         const response = await api.get(`/employes/${employeId}/diplomes`);
         return response.data;
@@ -331,8 +332,45 @@ export const employeService = {
     deleteDocument: async (employeId: number, documentId: number): Promise<void> => {
         await api.delete(`/employes/${employeId}/documents/${documentId}`);
     }
-
 };
+
+export const userService = {
+    // Méthode d'upload de photo
+    uploadPhoto: async (userId: number, file: File): Promise<any> => {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await api.post(`/utilisateurs/${userId}/photo`, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+        return response.data;
+    },
+
+    // Autres méthodes utilisateur
+    getProfile: async (): Promise<any> => {
+        const response = await api.get('/utilisateurs/profile');
+        return response.data;
+    },
+
+    updateProfile: async (userData: any): Promise<any> => {
+        const response = await api.put('/utilisateurs/profile', userData);
+        return response.data;
+    }
+};
+
+// Dans services/api.ts
+export interface RegisterData {
+    nom_utilisateur: string;
+    mot_de_passe: string;
+    email: string;
+    nom: string;
+    prenom: string;
+    telephone: string;
+    poste: string;
+    role?: string; // Optionnel, peut être défini par défaut côté serveur
+}
 
 // Nouveau service d'authentification
 export const authService = {
@@ -341,16 +379,20 @@ export const authService = {
         return response.data;
     },
 
-    register: async (userData: {
-        username: string;
-        password: string;
-        email: string;
-        nom: string;
-        prenom: string;
-        // Ajoutez d'autres champs nécessaires selon votre API
-    }) => {
-        const response = await api.post('/auth/register', userData);
-        return response.data;
+    register: async (userData: RegisterData) => {
+        const response = await fetch(`${API_BASE_URL}/auth/register`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(userData),
+        });
+
+        if (!response.ok) {
+            throw new Error('Erreur lors de l\'inscription');
+        }
+
+        return response.json();
     },
 
     getCurrentUser: async () => {

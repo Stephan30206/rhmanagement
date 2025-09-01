@@ -7,11 +7,14 @@ import com.rhmanagement.service.UtilisateurService;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -35,20 +38,17 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest) {
         try {
-            // Authentification avec les bons noms de champs
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
-                            loginRequest.getNomUtilisateur(),  // Changé de getUsername() à getNomUtilisateur()
-                            loginRequest.getMotDePasse()       // Changé de getPassword() à getMotDePasse()
+                            loginRequest.getNomUtilisateur(),
+                            loginRequest.getMotDePasse()
                     )
             );
 
-            // Génération du token JWT
             UserDetails userDetails = (UserDetails) authentication.getPrincipal();
             String token = jwtUtil.generateToken(userDetails.getUsername());
 
-            // Récupération des informations utilisateur
-            Optional<Utilisateur> utilisateurOpt = utilisateurService.findByNomUtilisateur(loginRequest.getNomUtilisateur()); // Changé ici aussi
+            Optional<Utilisateur> utilisateurOpt = utilisateurService.findByNomUtilisateur(loginRequest.getNomUtilisateur());
 
             if (utilisateurOpt.isEmpty()) {
                 return ResponseEntity.status(401)
@@ -57,7 +57,6 @@ public class AuthController {
 
             Utilisateur utilisateur = utilisateurOpt.get();
 
-            // Réponse
             Map<String, Object> response = new HashMap<>();
             response.put("token", token);
             response.put("user", utilisateur);
@@ -65,10 +64,85 @@ public class AuthController {
 
             return ResponseEntity.ok(response);
 
-        } catch (Exception e) {
+        } catch (BadCredentialsException e) {
             return ResponseEntity.status(401)
-                    .body(Map.of("message", "Nom d'utilisateur ou mot de passe incorrect", "error", e.getMessage()));
+                    .body(Map.of("message", "Nom d'utilisateur ou mot de passe incorrect"));
+        } catch (Exception e) {
+            return ResponseEntity.status(500)
+                    .body(Map.of("message", "Erreur interne du serveur", "error", e.getMessage()));
         }
+    }
+
+    @PostMapping("/register")
+    @Transactional(rollbackFor = Exception.class)
+    public ResponseEntity<?> register(@RequestBody RegisterRequest registerRequest) {
+        try {
+            // Vérifier si l'utilisateur existe déjà
+            if (utilisateurService.findByNomUtilisateur(registerRequest.getNomUtilisateur()).isPresent()) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("message", "Ce nom d'utilisateur est déjà pris"));
+            }
+
+            // Vérifier si l'email existe déjà - CORRECTION : Utilisez la méthode corrigée
+            if (utilisateurService.findByEmail(registerRequest.getEmail()).isPresent()) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("message", "Un utilisateur avec cet email existe déjà"));
+            }
+
+            // Créer le nouvel utilisateur
+            Utilisateur newUser = new Utilisateur();
+            newUser.setNomUtilisateur(registerRequest.getNomUtilisateur());
+            newUser.setMotDePasse(registerRequest.getMotDePasse()); // Le service va l'encoder
+            newUser.setEmail(registerRequest.getEmail());
+            newUser.setNom(registerRequest.getNom());
+            newUser.setPrenom(registerRequest.getPrenom());
+            newUser.setTelephone(registerRequest.getTelephone());
+            newUser.setPoste(registerRequest.getPoste());
+            newUser.setRole(Utilisateur.Role.ADMIN);
+            newUser.setActif(true);
+
+            Utilisateur savedUser = utilisateurService.createUser(newUser);
+            String token = jwtUtil.generateToken(savedUser.getNomUtilisateur());
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("token", token);
+            response.put("user", savedUser);
+            response.put("message", "Inscription réussie");
+
+            return ResponseEntity.ok(response);
+
+        } catch (DataIntegrityViolationException e) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", "Violation de contrainte d'intégrité des données"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", "Erreur lors de l'inscription", "error", e.getMessage()));
+        }
+    }
+    // Classe pour la requête d'inscription
+    @Setter
+    @Getter
+    public static class RegisterRequest {
+        @JsonProperty("nom_utilisateur")
+        private String nomUtilisateur;
+
+        @JsonProperty("mot_de_passe")
+        private String motDePasse;
+
+        @JsonProperty("email")
+        private String email;
+
+        @JsonProperty("nom")
+        private String nom;
+
+        @JsonProperty("prenom")
+        private String prenom;
+
+        @JsonProperty("telephone")
+        private String telephone;
+
+        @JsonProperty("poste")
+        private String poste;
     }
 
     @GetMapping("/me")
