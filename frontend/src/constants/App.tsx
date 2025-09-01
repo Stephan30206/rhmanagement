@@ -97,7 +97,6 @@ function App() {
     const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false)
     const [user, setUser] = useState<any>(null)
     const [showRegister, setShowRegister] = useState(false)
-    const [, setShowUserProfile] = useState(false)
 
     // Ensure employes is always an array
     const safeEmployes = React.useMemo(() => {
@@ -109,6 +108,7 @@ function App() {
         setIsAuthenticated(true);
         setShowRegister(false);
     };
+
     useEffect(() => {
         checkAuth();
     }, [])
@@ -521,11 +521,11 @@ function App() {
                             </button>
                         </div>
 
-                        {/* Profil utilisateur - avec photo améliorée */}
+                        {/* Profil utilisateur - navigation vers la page profil */}
                         <button
-                            onClick={() => setShowUserProfile(true)}
+                            onClick={() => setCurrentPage('profil')}
                             className="flex items-center space-x-3 bg-blue-50 rounded-full px-3 py-2 border border-blue-200 hover:bg-blue-100 transition-colors"
-                            title="Voir le profil"
+                            title="Aller au profil"
                         >
                             {user?.photoProfil ? (
                                 <img
@@ -546,13 +546,19 @@ function App() {
 
                         {/* Logo et nom FMC */}
                         <div className="flex items-center space-x-3 bg-green-50 rounded-full px-3 py-2 border border-green-200">
-                            {/* Logo FMC - vous pouvez remplacer par votre logo */}
-                            <div className="h-9 w-9 bg-gradient-to-br from-green-600 to-green-700 rounded-full flex items-center justify-center shadow-sm">
-                                <span className="text-white font-bold text-xs">FMC</span>
-                            </div>
+                            {/* Logo FMC - votre logo personnalisé */}
+                            <img
+                                src="/logo-fmc.png"
+                                alt="Logo FMC"
+                                className="h-9 w-9 rounded-full object-cover shadow-sm"
+                                onError={(e) => {
+                                    // Fallback si le logo ne charge pas
+                                    e.currentTarget.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzYiIGhlaWdodD0iMzYiIHZpZXdCb3g9IjAgMCAzNiAzNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMTgiIGN5PSIxOCIgcj0iMTgiIGZpbGw9IiMxNjgzNzUiLz4KPHR0ZXh0IHg9IjE4IiB5PSIyMyIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjEyIiBmb250LXdlaWdodD0iYm9sZCIgZmlsbD0id2hpdGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiPkZNQzwvdGV4dD4KPC9zdmc+';
+                                }}
+                            />
                             <div className="hidden md:block text-left">
                                 <p className="text-sm font-medium text-gray-900">FMC</p>
-                                <p className="text-xs text-green-600">AMBOHIMANGAKELY</p>
+                                <p className="text-xs text-green-600">FEDERATION MADAGASCAR CENTRE</p>
                             </div>
                         </div>
                     </div>
