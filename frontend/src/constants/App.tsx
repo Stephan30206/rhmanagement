@@ -480,7 +480,7 @@ function App() {
     const Header = () => (
         <header className="bg-white shadow-sm lg:static lg:overflow-y-visible">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="relative flex justify-between items-center h-16">
+                <div className="relative flex items-center justify-between h-16">
                     {/* Partie gauche - Menu burger + Barre de recherche */}
                     <div className="flex items-center space-x-4">
                         <button
@@ -491,7 +491,7 @@ function App() {
                         </button>
 
                         {/* Barre de recherche */}
-                        <div className="w-80">
+                        <div className="w-64 lg:w-80">
                             <div className="relative">
                                 <div className="pointer-events-none absolute inset-y-0 left-0 pl-3 flex items-center">
                                     <Search className="h-5 w-5 text-gray-400"/>
@@ -513,45 +513,46 @@ function App() {
                     <div className="flex items-center space-x-4">
                         {/* Notifications et paramètres */}
                         <div className="hidden lg:flex items-center space-x-2">
-                            <button className="p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100">
+                            <button className="p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100" title="Notifications">
                                 <Bell className="h-5 w-5"/>
                             </button>
-                            <button className="p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100">
+                            <button className="p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100" title="Paramètres">
                                 <Settings className="h-5 w-5"/>
                             </button>
                         </div>
 
-                        {/* Profil utilisateur */}
+                        {/* Profil utilisateur - avec photo améliorée */}
                         <button
                             onClick={() => setShowUserProfile(true)}
-                            className="flex items-center space-x-3 bg-blue-50 rounded-full px-4 py-2 border border-blue-200 hover:bg-blue-100 transition-colors"
+                            className="flex items-center space-x-3 bg-blue-50 rounded-full px-3 py-2 border border-blue-200 hover:bg-blue-100 transition-colors"
+                            title="Voir le profil"
                         >
                             {user?.photoProfil ? (
                                 <img
                                     src={`http://localhost:8080/uploads/${user.photoProfil}`}
-                                    alt={user.username}
-                                    className="h-10 w-10 rounded-full object-cover border-2 border-blue-300"
+                                    alt={`${user.prenom} ${user.nom}`}
+                                    className="h-9 w-9 rounded-full object-cover border-2 border-blue-400 shadow-sm"
                                 />
                             ) : (
-                                <div className="h-10 w-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm border-2 border-blue-300">
-                                    {user?.username?.[0]?.toUpperCase() || 'A'}
+                                <div className="h-9 w-9 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-sm border-2 border-blue-400 shadow-sm">
+                                    {((user?.prenom?.[0] || '') + (user?.nom?.[0] || '')).toUpperCase() || 'A'}
                                 </div>
                             )}
-                            <div className="hidden sm:block">
+                            <div className="hidden md:block text-left">
                                 <p className="text-sm font-medium text-gray-900">{user?.prenom} {user?.nom}</p>
-                                <p className="text-xs text-blue-600">{user?.poste}</p>
+                                <p className="text-xs text-blue-600 truncate max-w-32">{user?.poste}</p>
                             </div>
                         </button>
 
                         {/* Logo et nom FMC */}
-                        <div className="flex items-center space-x-3 bg-blue-50 rounded-full px-4 py-2 border border-blue-200">
+                        <div className="flex items-center space-x-3 bg-green-50 rounded-full px-3 py-2 border border-green-200">
                             {/* Logo FMC - vous pouvez remplacer par votre logo */}
-                            <div className="h-10 w-10 bg-blue-600 rounded-full flex items-center justify-center">
-                                <span className="text-white font-bold text-sm">FMC</span>
+                            <div className="h-9 w-9 bg-gradient-to-br from-green-600 to-green-700 rounded-full flex items-center justify-center shadow-sm">
+                                <span className="text-white font-bold text-xs">FMC</span>
                             </div>
-                            <div className="hidden sm:block">
+                            <div className="hidden md:block text-left">
                                 <p className="text-sm font-medium text-gray-900">FMC</p>
-                                <p className="text-xs text-blue-600">AMBOHIMANGAKELY - CMLC</p>
+                                <p className="text-xs text-green-600">AMBOHIMANGAKELY</p>
                             </div>
                         </div>
                     </div>
