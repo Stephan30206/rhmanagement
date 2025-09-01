@@ -480,65 +480,78 @@ function App() {
     const Header = () => (
         <header className="bg-white shadow-sm lg:static lg:overflow-y-visible">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="relative flex justify-between xl:grid xl:grid-cols-12 lg:gap-8">
-                    <div className="flex md:absolute md:left-0 md:inset-y-0 lg:static xl:col-span-2">
-                        <div className="flex-shrink-0 flex items-center">
-                            <button
-                                onClick={() => setSidebarOpen(!sidebarOpen)}
-                                className="lg:hidden p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100"
-                            >
-                                <Menu className="h-6 w-6"/>
-                            </button>
+                <div className="relative flex justify-between items-center h-16">
+                    {/* Partie gauche - Menu burger + Barre de recherche */}
+                    <div className="flex items-center space-x-4">
+                        <button
+                            onClick={() => setSidebarOpen(!sidebarOpen)}
+                            className="lg:hidden p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100"
+                        >
+                            <Menu className="h-6 w-6"/>
+                        </button>
 
-                        </div>
-                    </div>
-                    <div className="min-w-0 flex-1 md:px-8 lg:px-0 xl:col-span-6">
-                        <div className="flex items-center px-6 py-4 md:max-w-3xl md:mx-auto lg:max-w-none lg:mx-0 xl:px-0">
-                            <div className="w-full">
-                                <label htmlFor="search" className="sr-only">Rechercher</label>
-                                <div className="relative">
-                                    <div className="pointer-events-none absolute inset-y-0 left-0 pl-3 flex items-center">
-                                        <Search className="h-5 w-5 text-gray-400"/>
-                                    </div>
-                                    <input
-                                        id="search"
-                                        name="search"
-                                        className="block w-full bg-white border border-gray-300 rounded-md py-2 pl-10 pr-3 text-sm placeholder-gray-500 focus:outline-none focus:text-gray-900 focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                                        placeholder="Rechercher un employé..."
-                                        type="search"
-                                        value={searchTerm}
-                                        onChange={(e) => handleSearch(e.target.value)}
-                                    />
+                        {/* Barre de recherche */}
+                        <div className="w-80">
+                            <div className="relative">
+                                <div className="pointer-events-none absolute inset-y-0 left-0 pl-3 flex items-center">
+                                    <Search className="h-5 w-5 text-gray-400"/>
                                 </div>
+                                <input
+                                    id="search"
+                                    name="search"
+                                    className="block w-full bg-white border border-gray-300 rounded-md py-2 pl-10 pr-3 text-sm placeholder-gray-500 focus:outline-none focus:text-gray-900 focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                    placeholder="Rechercher un employé..."
+                                    type="search"
+                                    value={searchTerm}
+                                    onChange={(e) => handleSearch(e.target.value)}
+                                />
                             </div>
                         </div>
                     </div>
-                    <div className="hidden lg:flex lg:items-center lg:justify-end xl:col-span-4">
-                        <div className="flex items-center space-x-4">
+
+                    {/* Partie droite - Notifications + Paramètres + Profil + Logo FMC */}
+                    <div className="flex items-center space-x-4">
+                        {/* Notifications et paramètres */}
+                        <div className="hidden lg:flex items-center space-x-2">
                             <button className="p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100">
                                 <Bell className="h-5 w-5"/>
                             </button>
                             <button className="p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100">
                                 <Settings className="h-5 w-5"/>
                             </button>
-                            <div className="flex items-center">
-                                <span className="text-sm text-gray-700">Bienvenue, {user?.username || 'Admin'}</span>
-                                <button
-                                    onClick={() => setShowUserProfile(true)}
-                                    className="ml-2 cursor-pointer"
-                                >
-                                    {user?.photoProfil ? (
-                                        <img
-                                            src={`http://localhost:8080/uploads/${user.photoProfil}`}
-                                            alt={user.username}
-                                            className="h-8 w-8 rounded-full ml-2"
-                                        />
-                                    ) : (
-                                        <div className="h-8 w-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-xs ml-2">
-                                            {user?.username?.[0]?.toUpperCase() || 'A'}
-                                        </div>
-                                    )}
-                                </button>
+                        </div>
+
+                        {/* Profil utilisateur */}
+                        <button
+                            onClick={() => setShowUserProfile(true)}
+                            className="flex items-center space-x-3 bg-blue-50 rounded-full px-4 py-2 border border-blue-200 hover:bg-blue-100 transition-colors"
+                        >
+                            {user?.photoProfil ? (
+                                <img
+                                    src={`http://localhost:8080/uploads/${user.photoProfil}`}
+                                    alt={user.username}
+                                    className="h-10 w-10 rounded-full object-cover border-2 border-blue-300"
+                                />
+                            ) : (
+                                <div className="h-10 w-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm border-2 border-blue-300">
+                                    {user?.username?.[0]?.toUpperCase() || 'A'}
+                                </div>
+                            )}
+                            <div className="hidden sm:block">
+                                <p className="text-sm font-medium text-gray-900">{user?.prenom} {user?.nom}</p>
+                                <p className="text-xs text-blue-600">{user?.poste}</p>
+                            </div>
+                        </button>
+
+                        {/* Logo et nom FMC */}
+                        <div className="flex items-center space-x-3 bg-blue-50 rounded-full px-4 py-2 border border-blue-200">
+                            {/* Logo FMC - vous pouvez remplacer par votre logo */}
+                            <div className="h-10 w-10 bg-blue-600 rounded-full flex items-center justify-center">
+                                <span className="text-white font-bold text-sm">FMC</span>
+                            </div>
+                            <div className="hidden sm:block">
+                                <p className="text-sm font-medium text-gray-900">FMC</p>
+                                <p className="text-xs text-blue-600">AMBOHIMANGAKELY - CMLC</p>
                             </div>
                         </div>
                     </div>
