@@ -19,7 +19,15 @@ import {
     LogOut,
     Bell,
     Settings,
-    AlertTriangle
+    AlertTriangle,
+    Save,
+    Lock,
+    Globe,
+    Building,
+    CreditCard,
+    Shield,
+    Database,
+    HardDrive
 } from 'lucide-react'
 
 import EmployeForm from "../components/EmployeForm.tsx";
@@ -222,6 +230,7 @@ function App() {
         {id: 'documents', name: 'Documents', icon: FileText},
         {id: 'talents', name: 'Talents', icon: Award},
         {id: 'etat-service', name: 'État de service', icon: BarChart3},
+        {id: 'parametres', name: 'Paramètres', icon: Settings},
         {id: 'profil', name: 'Mon Profil', icon: User}
     ]
 
@@ -299,6 +308,112 @@ function App() {
     const Profil = () => {
         if (!user) return null;
 
+        const [activeTab, setActiveTab] = useState('informations');
+        const [isEditing, setIsEditing] = useState(false);
+        const [formData, setFormData] = useState({
+            prenom: user.prenom || '',
+            nom: user.nom || '',
+            username: user.nom_utilisateur || user.username || '',
+            email: user.email || '',
+            telephone: user.telephone || '',
+            poste: user.poste || '',
+            departement: user.departement || '',
+            adresse: user.adresse || '',
+            dateNaissance: user.date_naissance || user.dateNaissance || '',
+            genre: user.genre || ''
+        });
+
+        const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+            const { name, value } = e.target;
+            setFormData(prev => ({
+                ...prev,
+                [name]: value
+            }));
+        };
+
+        const handleSaveProfile = async () => {
+            try {
+                // Appel API pour mettre à jour le profil
+                await authService.updateProfile(formData);
+
+                // Mettre à jour l'utilisateur localement
+                setUser({ ...user, ...formData });
+                setIsEditing(false);
+
+                alert('Profil mis à jour avec succès!');
+            } catch (error) {
+                console.error('Erreur lors de la mise à jour du profil:', error);
+                alert('Erreur lors de la mise à jour du profil');
+            }
+        };
+
+        const handleCancelEdit = () => {
+            setFormData({
+                prenom: user.prenom || '',
+                nom: user.nom || '',
+                username: user.nom_utilisateur || user.username || '',
+                email: user.email || '',
+                telephone: user.telephone || '',
+                poste: user.poste || '',
+                departement: user.departement || '',
+                adresse: user.adresse || '',
+                dateNaissance: user.date_naissance || user.dateNaissance || '',
+                genre: user.genre || ''
+            });
+            setIsEditing(false);
+        };
+
+        const handleChangePassword = async () => {
+            const newPassword = prompt('Entrez votre nouveau mot de passe:');
+            if (newPassword) {
+                try {
+                    await authService.changePassword(user.id, newPassword);
+                    alert('Mot de passe changé avec succès!');
+                } catch (error) {
+                    console.error('Erreur lors du changement de mot de passe:', error);
+                    alert('Erreur lors du changement de mot de passe');
+                }
+            }
+        };
+
+        const handleUploadPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+            const file = e.target.files?.[0];
+            if (file) {
+                try {
+                    const formData = new FormData();
+                    formData.append('photo', file);
+
+                    const updatedUser = await authService.uploadProfilePhoto(user.id, formData);
+                    setUser(updatedUser);
+                    alert('Photo de profil mise à jour avec succès!');
+                } catch (error) {
+                    console.error('Erreur lors de l\'upload de la photo:', error);
+                    alert('Erreur lors de l\'upload de la photo');
+                }
+            }
+        };
+
+        const handleExportData = () => {
+            const dataStr = JSON.stringify(user, null, 2);
+            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+            const exportFileDefaultName = `donnees-personnelles-${user.nom_utilisateur || user.username}.json`;
+
+            const linkElement = document.createElement('a');
+            linkElement.setAttribute('href', dataUri);
+            linkElement.setAttribute('download', exportFileDefaultName);
+            linkElement.click();
+        };
+
+        // Récupérer les informations de l'employé si l'utilisateur est lié à un employé
+        const [employeData, setEmployeData] = useState<any>(null);
+        useEffect(() => {
+            if (user.employe_id) {
+                employeService.getEmployeById(user.employe_id)
+                    .then(data => setEmployeData(data))
+                    .catch(error => console.error('Erreur lors du chargement des données employé:', error));
+            }
+        }, [user.employe_id]);
+
         return (
             <ErrorBoundary>
                 <div className="space-y-6">
@@ -306,166 +421,332 @@ function App() {
                         <div>
                             <h2 className="text-3xl font-bold text-gray-900">Mon Profil</h2>
                             <p className="mt-2 text-sm text-gray-600">
-                                Informations personnelles et paramètres du compte
+                                Gestion de vos informations personnelles et paramètres du compte
                             </p>
                         </div>
+                        <div className="flex space-x-3 mt-4 sm:mt-0">
+                            {isEditing ? (
+                                <>
+                                    <button
+                                        onClick={handleSaveProfile}
+                                        className="inline-flex items-center px-4 py-2 rounded-md text-white bg-green-600 hover:bg-green-700 transition-colors"
+                                    >
+                                        <Save className="h-4 w-4 mr-2" />
+                                        Enregistrer
+                                    </button>
+                                    <button
+                                        onClick={handleCancelEdit}
+                                        className="inline-flex items-center px-4 py-2 rounded-md text-gray-700 bg-gray-200 hover:bg-gray-300 transition-colors"
+                                    >
+                                        Annuler
+                                    </button>
+                                </>
+                            ) : (
+                                <button
+                                    onClick={() => setIsEditing(true)}
+                                    className="inline-flex items-center px-4 py-2 rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+                                >
+                                    <Edit className="h-4 w-4 mr-2" />
+                                    Modifier le profil
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Navigation par onglets */}
+                    <div className="bg-white shadow-sm rounded-lg">
+                        <nav className="flex space-x-8 px-6 border-b border-gray-200">
+                            <button
+                                onClick={() => setActiveTab('informations')}
+                                className={`py-4 px-1 text-sm font-medium border-b-2 ${
+                                    activeTab === 'informations'
+                                        ? 'border-blue-500 text-blue-600'
+                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                }`}
+                            >
+                                Informations Personnelles
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('professionnel')}
+                                className={`py-4 px-1 text-sm font-medium border-b-2 ${
+                                    activeTab === 'professionnel'
+                                        ? 'border-blue-500 text-blue-600'
+                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                }`}
+                            >
+                                Informations Professionnelles
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('securite')}
+                                className={`py-4 px-1 text-sm font-medium border-b-2 ${
+                                    activeTab === 'securite'
+                                        ? 'border-blue-500 text-blue-600'
+                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                }`}
+                            >
+                                Sécurité
+                            </button>
+                        </nav>
                     </div>
 
                     <div className="bg-white shadow overflow-hidden sm:rounded-lg">
                         <div className="px-6 py-8">
                             {/* En-tête avec photo */}
-                            <div className="flex items-center space-x-6 mb-8">
-                                {user.photoProfil ? (
-                                    <img
-                                        src={`http://localhost:8080/uploads/${user.photoProfil}`}
-                                        alt={user.username}
-                                        className="h-24 w-24 rounded-full object-cover border-4 border-blue-100"
-                                    />
-                                ) : (
-                                    <div className="h-24 w-24 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-3xl border-4 border-blue-100">
-                                        {user.username?.[0]?.toUpperCase() || 'A'}
-                                    </div>
-                                )}
-                                <div>
-                                    <h1 className="text-2xl font-bold text-gray-900">
+                            <div className="flex flex-col sm:flex-row items-center space-y-6 sm:space-y-0 sm:space-x-8 mb-8">
+                                <div className="relative">
+                                    {user.photo_profil ? (
+                                        <img
+                                            src={`http://localhost:8080/uploads/${user.photo_profil}`}
+                                            alt={user.nom_utilisateur || user.username}
+                                            className="h-32 w-32 rounded-full object-cover border-4 border-blue-100 shadow-lg"
+                                        />
+                                    ) : (
+                                        <div className="h-32 w-32 bg-gradient-to-br from-blue-500 to-blue-700 rounded-full flex items-center justify-center text-white font-bold text-4xl border-4 border-blue-100 shadow-lg">
+                                            {user.prenom?.[0]?.toUpperCase() || ''}{user.nom?.[0]?.toUpperCase() || 'A'}
+                                        </div>
+                                    )}
+                                    <label htmlFor="photo-upload" className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 transition-colors">
+                                        <Edit className="h-4 w-4" />
+                                        <input
+                                            id="photo-upload"
+                                            type="file"
+                                            accept="image/*"
+                                            className="hidden"
+                                            onChange={handleUploadPhoto}
+                                        />
+                                    </label>
+                                </div>
+                                <div className="text-center sm:text-left">
+                                    <h1 className="text-3xl font-bold text-gray-900">
                                         {user.prenom} {user.nom}
                                     </h1>
-                                    <p className="text-gray-600">@{user.username}</p>
-                                    <p className="text-sm text-gray-500 mt-1">{user.poste}</p>
+                                    <p className="text-gray-600 text-lg">@{user.nom_utilisateur || user.username}</p>
+                                    <p className="text-sm text-gray-500 mt-2 bg-blue-100 text-blue-800 px-3 py-1 rounded-full inline-block">
+                                        {user.poste || 'Non spécifié'}
+                                    </p>
+                                    <div className="mt-3 flex flex-wrap gap-2">
+                                    <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                                        {user.role || 'Utilisateur'}
+                                    </span>
+                                        <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                                        {user.actif ? 'ACTIF' : 'INACTIF'}
+                                    </span>
+                                    </div>
                                 </div>
                             </div>
 
-                            {/* Informations personnelles */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                                <div className="bg-blue-50 p-4 rounded-lg">
-                                    <h3 className="text-lg font-semibold text-blue-900 mb-4">Informations Personnelles</h3>
+                            {/* Contenu des onglets */}
+                            {activeTab === 'informations' && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="space-y-6">
+                                        <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Informations Personnelles</h3>
 
-                                    <div className="space-y-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-blue-700">Nom complet</label>
-                                            <p className="mt-1 text-sm text-gray-900">{user.prenom} {user.nom}</p>
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Prénom</label>
+                                                {isEditing ? (
+                                                    <input
+                                                        type="text"
+                                                        name="prenom"
+                                                        value={formData.prenom}
+                                                        onChange={handleInputChange}
+                                                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    />
+                                                ) : (
+                                                    <p className="text-gray-900">{user.prenom || 'Non renseigné'}</p>
+                                                )}
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Nom</label>
+                                                {isEditing ? (
+                                                    <input
+                                                        type="text"
+                                                        name="nom"
+                                                        value={formData.nom}
+                                                        onChange={handleInputChange}
+                                                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    />
+                                                ) : (
+                                                    <p className="text-gray-900">{user.nom || 'Non renseigné'}</p>
+                                                )}
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                                                {isEditing ? (
+                                                    <input
+                                                        type="email"
+                                                        name="email"
+                                                        value={formData.email}
+                                                        onChange={handleInputChange}
+                                                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    />
+                                                ) : (
+                                                    <p className="text-gray-900">{user.email || 'Non renseigné'}</p>
+                                                )}
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
+                                                {isEditing ? (
+                                                    <input
+                                                        type="tel"
+                                                        name="telephone"
+                                                        value={formData.telephone}
+                                                        onChange={handleInputChange}
+                                                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    />
+                                                ) : (
+                                                    <p className="text-gray-900">{user.telephone || 'Non renseigné'}</p>
+                                                )}
+                                            </div>
                                         </div>
+                                    </div>
 
-                                        <div>
-                                            <label className="block text-sm font-medium text-blue-700">Nom d'utilisateur</label>
-                                            <p className="mt-1 text-sm text-gray-900">{user.username}</p>
-                                        </div>
+                                    <div className="space-y-6">
+                                        <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Détails Personnels</h3>
 
-                                        <div>
-                                            <label className="block text-sm font-medium text-blue-700">Email</label>
-                                            <p className="mt-1 text-sm text-gray-900">{user.email}</p>
-                                        </div>
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Date de naissance</label>
+                                                {isEditing ? (
+                                                    <input
+                                                        type="date"
+                                                        name="dateNaissance"
+                                                        value={formData.dateNaissance}
+                                                        onChange={handleInputChange}
+                                                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    />
+                                                ) : (
+                                                    <p className="text-gray-900">
+                                                        {user.date_naissance ? new Date(user.date_naissance).toLocaleDateString('fr-FR') : 'Non renseigné'}
+                                                    </p>
+                                                )}
+                                            </div>
 
-                                        <div>
-                                            <label className="block text-sm font-medium text-blue-700">Téléphone</label>
-                                            <p className="mt-1 text-sm text-gray-900">{user.telephone || 'Non renseigné'}</p>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Adresse</label>
+                                                {isEditing ? (
+                                                    <textarea
+                                                        name="adresse"
+                                                        value={formData.adresse}
+                                                        onChange={handleInputChange}
+                                                        rows={3}
+                                                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    />
+                                                ) : (
+                                                    <p className="text-gray-900">{user.adresse || 'Non renseigné'}</p>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
+                            )}
 
-                                <div className="bg-green-50 p-4 rounded-lg">
-                                    <h3 className="text-lg font-semibold text-green-900 mb-4">Informations Professionnelles</h3>
+                            {activeTab === 'professionnel' && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="space-y-6">
+                                        <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Informations Professionnelles</h3>
 
-                                    <div className="space-y-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-green-700">Poste</label>
-                                            <p className="mt-1 text-sm text-gray-900">{user.poste || 'Non renseigné'}</p>
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Poste</label>
+                                                {isEditing ? (
+                                                    <input
+                                                        type="text"
+                                                        name="poste"
+                                                        value={formData.poste}
+                                                        onChange={handleInputChange}
+                                                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    />
+                                                ) : (
+                                                    <p className="text-gray-900">{user.poste || 'Non renseigné'}</p>
+                                                )}
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Rôle</label>
+                                                <p className="text-gray-900 bg-gray-50 p-2 rounded capitalize">{user.role?.toLowerCase() || 'Utilisateur'}</p>
+                                            </div>
+
+                                            {employeData && (
+                                                <>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700 mb-1">Matricule</label>
+                                                        <p className="text-gray-900 bg-gray-50 p-2 rounded">{employeData.matricule || 'Non attribué'}</p>
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700 mb-1">Statut</label>
+                                                        <p className="text-gray-900 bg-gray-50 p-2 rounded">{employeData.statut || 'Non spécifié'}</p>
+                                                    </div>
+                                                </>
+                                            )}
                                         </div>
+                                    </div>
 
-                                        <div>
-                                            <label className="block text-sm font-medium text-green-700">Matricule</label>
-                                            <p className="mt-1 text-sm text-gray-900">{user.matricule || 'Non renseigné'}</p>
+                                    <div className="space-y-6">
+                                        <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Informations du Compte</h3>
+
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Nom d'utilisateur</label>
+                                                <p className="text-gray-900 bg-gray-50 p-2 rounded">@{user.nom_utilisateur || user.username}</p>
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Date de création</label>
+                                                <p className="text-gray-900 bg-gray-50 p-2 rounded">
+                                                    {user.date_creation ? new Date(user.date_creation).toLocaleDateString('fr-FR', {
+                                                        year: 'numeric',
+                                                        month: 'long',
+                                                        day: 'numeric'
+                                                    }) : 'Non disponible'}
+                                                </p>
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Statut du compte</label>
+                                                <p className="text-gray-900 bg-gray-50 p-2 rounded">
+                                                    {user.actif ? 'Actif' : 'Inactif'}
+                                                </p>
+                                            </div>
                                         </div>
+                                    </div>
+                                </div>
+                            )}
 
-                                        <div>
-                                            <label className="block text-sm font-medium text-green-700">Département</label>
-                                            <p className="mt-1 text-sm text-gray-900">{user.departement || 'Non renseigné'}</p>
-                                        </div>
+                            {activeTab === 'securite' && (
+                                <div className="space-y-6">
+                                    <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Sécurité du Compte</h3>
 
-                                        <div>
-                                            <label className="block text-sm font-medium text-green-700">Statut</label>
-                                            <p className="mt-1 text-sm text-gray-900">
-                                            <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">
-                                                {user.statut || 'ACTIF'}
-                                            </span>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="bg-blue-50 p-6 rounded-lg">
+                                            <h4 className="text-md font-medium text-blue-900 mb-4">Changer le mot de passe</h4>
+                                            <p className="text-sm text-blue-800 mb-4">
+                                                Mettez à jour votre mot de passe régulièrement pour maintenir la sécurité de votre compte.
                                             </p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Informations supplémentaires */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="bg-gray-50 p-4 rounded-lg">
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Informations du Compte</h3>
-
-                                    <div className="space-y-3">
-                                        <div className="flex justify-between">
-                                            <span className="text-sm text-gray-600">Date de création</span>
-                                            <span className="text-sm text-gray-900">
-                                            {user.dateCreation ? new Date(user.dateCreation).toLocaleDateString('fr-FR') : 'Non disponible'}
-                                        </span>
+                                            <button
+                                                onClick={handleChangePassword}
+                                                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                                            >
+                                                <Lock className="h-4 w-4 mr-2" />
+                                                Changer le mot de passe
+                                            </button>
                                         </div>
 
-                                        <div className="flex justify-between">
-                                            <span className="text-sm text-gray-600">Dernière connexion</span>
-                                            <span className="text-sm text-gray-900">
-                                            {user.lastLogin ? new Date(user.lastLogin).toLocaleString('fr-FR') : 'Non disponible'}
-                                        </span>
-                                        </div>
-
-                                        <div className="flex justify-between">
-                                            <span className="text-sm text-gray-600">Rôle</span>
-                                            <span className="text-sm text-gray-900">{user.role || 'Utilisateur'}</span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="bg-yellow-50 p-4 rounded-lg">
-                                    <h3 className="text-lg font-semibold text-yellow-900 mb-4">Actions</h3>
-
-                                    <div className="space-y-3">
-                                        <button className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors text-sm">
-                                            <Edit className="h-4 w-4 inline mr-2" />
-                                            Modifier le profil
-                                        </button>
-
-                                        <button className="w-full bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700 transition-colors text-sm">
-                                            <Settings className="h-4 w-4 inline mr-2" />
-                                            Paramètres du compte
-                                        </button>
-
-                                        <button
-                                            onClick={handleLogout}
-                                            className="w-full bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 transition-colors text-sm"
-                                        >
-                                            <LogOut className="h-4 w-4 inline mr-2" />
-                                            Se déconnecter
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Statistiques (optionnel) */}
-                            {user.statistics && (
-                                <div className="mt-8 bg-indigo-50 p-4 rounded-lg">
-                                    <h3 className="text-lg font-semibold text-indigo-900 mb-4">Statistiques d'Activité</h3>
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                        <div className="text-center">
-                                            <div className="text-2xl font-bold text-indigo-600">{user.statistics.employesGeres || 0}</div>
-                                            <div className="text-sm text-indigo-800">Employés gérés</div>
-                                        </div>
-                                        <div className="text-center">
-                                            <div className="text-2xl font-bold text-indigo-600">{user.statistics.congesApprouves || 0}</div>
-                                            <div className="text-sm text-indigo-800">Congés approuvés</div>
-                                        </div>
-                                        <div className="text-center">
-                                            <div className="text-2xl font-bold text-indigo-600">{user.statistics.documentsUploades || 0}</div>
-                                            <div className="text-sm text-indigo-800">Documents uploadés</div>
-                                        </div>
-                                        <div className="text-center">
-                                            <div className="text-2xl font-bold text-indigo-600">{user.statistics.activiteMensuelle || 0}</div>
-                                            <div className="text-sm text-indigo-800">Activité mensuelle</div>
+                                        <div className="bg-purple-50 p-6 rounded-lg">
+                                            <h4 className="text-md font-medium text-purple-900 mb-4">Export des données</h4>
+                                            <p className="text-sm text-purple-800 mb-4">
+                                                Téléchargez une copie de toutes vos données personnelles.
+                                            </p>
+                                            <button
+                                                onClick={handleExportData}
+                                                className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
+                                            >
+                                                <Download className="h-4 w-4 mr-2" />
+                                                Exporter mes données
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
@@ -516,7 +797,11 @@ function App() {
                             <button className="p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100" title="Notifications">
                                 <Bell className="h-5 w-5"/>
                             </button>
-                            <button className="p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100" title="Paramètres">
+                            <button
+                                onClick={() => setCurrentPage('parametres')}
+                                className="p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100"
+                                title="Paramètres"
+                            >
                                 <Settings className="h-5 w-5"/>
                             </button>
                         </div>
@@ -544,9 +829,9 @@ function App() {
                             </div>
                         </button>
 
-                        {/* Logo et nom FMC */}
+                        {/* Logo et nom FMC
                         <div className="flex items-center space-x-3 bg-green-50 rounded-full px-3 py-2 border border-green-200">
-                            {/* Logo FMC - votre logo personnalisé */}
+                            {/* Logo FMC - votre logo personnalisé
                             <img
                                 src="/logo-fmc.png"
                                 alt="Logo FMC"
@@ -561,6 +846,7 @@ function App() {
                                 <p className="text-xs text-green-600">FEDERATION MADAGASCAR CENTRE</p>
                             </div>
                         </div>
+                        */}
                     </div>
                 </div>
             </div>
@@ -1023,6 +1309,450 @@ function App() {
         )
     }
 
+    const Parametres = () => {
+        const [activeTab, setActiveTab] = useState('general');
+        const [settings, setSettings] = useState({
+            general: {
+                nomOrganisation: "FMC - Fédération Madagascar Centre",
+                adresse: "Lot II C 25 Ambohimangakely",
+                email: "contact@fmc.mg",
+                telephone: "+261 34 00 000 00",
+                langue: "fr",
+                fuseauHoraire: "Indian/Antananarivo"
+            },
+            utilisateurs: {
+                roles: [
+                    { id: 1, nom: "Administrateur", permissions: ["all"] },
+                    { id: 2, nom: "RH", permissions: ["employes", "conges", "documents"] },
+                    { id: 3, nom: "Manager", permissions: ["employes", "conges"] },
+                    { id: 4, nom: "Employé", permissions: ["profil"] }
+                ]
+            },
+            rh: {
+                typesContrat: ["CDI", "CDD", "Stage", "Mission"],
+                politiquesConges: {
+                    annuel: 25,
+                    maladie: 15,
+                    maternite: 14,
+                    paternite: 3
+                }
+            },
+            paie: {
+                modeCalcul: "fixe",
+                methodesPaiement: ["Virement", "Espèces", "Chèque"]
+            },
+            securite: {
+                complexiteMdp: 8,
+                dureeValiditeMdp: 90,
+                connexionsSimultanees: 1
+            }
+        });
+
+        const handleSaveSettings = () => {
+            // Ici, vous pourriez envoyer les paramètres au backend
+            alert("Paramètres sauvegardés avec succès!");
+        };
+
+        return (
+            <ErrorBoundary>
+                <div className="space-y-6">
+                    <div className="sm:flex sm:items-center sm:justify-between">
+                        <div>
+                            <h2 className="text-3xl font-bold text-gray-900">Paramètres</h2>
+                            <p className="mt-2 text-sm text-gray-600">
+                                Configuration du système RH FMC
+                            </p>
+                        </div>
+                        <button
+                            onClick={handleSaveSettings}
+                            className="inline-flex items-center px-4 py-2 rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+                        >
+                            <Save className="h-4 w-4 mr-2"/>
+                            Sauvegarder
+                        </button>
+                    </div>
+
+                    <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+                        <div className="border-b border-gray-200">
+                            <nav className="-mb-px flex space-x-8 px-6">
+                                <button
+                                    onClick={() => setActiveTab('general')}
+                                    className={`py-4 px-1 text-sm font-medium border-b-2 ${
+                                        activeTab === 'general'
+                                            ? 'border-blue-500 text-blue-600'
+                                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                    }`}
+                                >
+                                    <Globe className="h-4 w-4 inline mr-2" />
+                                    Général
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('utilisateurs')}
+                                    className={`py-4 px-1 text-sm font-medium border-b-2 ${
+                                        activeTab === 'utilisateurs'
+                                            ? 'border-blue-500 text-blue-600'
+                                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                    }`}
+                                >
+                                    <Users className="h-4 w-4 inline mr-2" />
+                                    Utilisateurs
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('rh')}
+                                    className={`py-4 px-1 text-sm font-medium border-b-2 ${
+                                        activeTab === 'rh'
+                                            ? 'border-blue-500 text-blue-600'
+                                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                    }`}
+                                >
+                                    <Building className="h-4 w-4 inline mr-2" />
+                                    Paramètres RH
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('paie')}
+                                    className={`py-4 px-1 text-sm font-medium border-b-2 ${
+                                        activeTab === 'paie'
+                                            ? 'border-blue-500 text-blue-600'
+                                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                    }`}
+                                >
+                                    <CreditCard className="h-4 w-4 inline mr-2" />
+                                    Paie
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('securite')}
+                                    className={`py-4 px-1 text-sm font-medium border-b-2 ${
+                                        activeTab === 'securite'
+                                            ? 'border-blue-500 text-blue-600'
+                                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                    }`}
+                                >
+                                    <Shield className="h-4 w-4 inline mr-2" />
+                                    Sécurité
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('sauvegarde')}
+                                    className={`py-4 px-1 text-sm font-medium border-b-2 ${
+                                        activeTab === 'sauvegarde'
+                                            ? 'border-blue-500 text-blue-600'
+                                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                    }`}
+                                >
+                                    <Database className="h-4 w-4 inline mr-2" />
+                                    Sauvegarde
+                                </button>
+                            </nav>
+                        </div>
+
+                        <div className="px-6 py-8">
+                            {activeTab === 'general' && (
+                                <div className="space-y-6">
+                                    <h3 className="text-lg font-medium text-gray-900">Paramètres généraux</h3>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700">Nom de l'organisation</label>
+                                            <input
+                                                type="text"
+                                                value={settings.general.nomOrganisation}
+                                                onChange={(e) => setSettings({
+                                                    ...settings,
+                                                    general: {...settings.general, nomOrganisation: e.target.value}
+                                                })}
+                                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700">Adresse</label>
+                                            <input
+                                                type="text"
+                                                value={settings.general.adresse}
+                                                onChange={(e) => setSettings({
+                                                    ...settings,
+                                                    general: {...settings.general, adresse: e.target.value}
+                                                })}
+                                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700">Email</label>
+                                            <input
+                                                type="email"
+                                                value={settings.general.email}
+                                                onChange={(e) => setSettings({
+                                                    ...settings,
+                                                    general: {...settings.general, email: e.target.value}
+                                                })}
+                                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700">Téléphone</label>
+                                            <input
+                                                type="text"
+                                                value={settings.general.telephone}
+                                                onChange={(e) => setSettings({
+                                                    ...settings,
+                                                    general: {...settings.general, telephone: e.target.value}
+                                                })}
+                                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700">Langue</label>
+                                            <select
+                                                value={settings.general.langue}
+                                                onChange={(e) => setSettings({
+                                                    ...settings,
+                                                    general: {...settings.general, langue: e.target.value}
+                                                })}
+                                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                            >
+                                                <option value="fr">Français</option>
+                                                <option value="mg">Malagasy</option>
+                                                <option value="en">English</option>
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700">Fuseau horaire</label>
+                                            <select
+                                                value={settings.general.fuseauHoraire}
+                                                onChange={(e) => setSettings({
+                                                    ...settings,
+                                                    general: {...settings.general, fuseauHoraire: e.target.value}
+                                                })}
+                                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                            >
+                                                <option value="Indian/Antananarivo">Antananarivo (UTC+3)</option>
+                                                <option value="UTC">UTC</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeTab === 'utilisateurs' && (
+                                <div className="space-y-6">
+                                    <h3 className="text-lg font-medium text-gray-900">Gestion des utilisateurs</h3>
+
+                                    <div className="bg-gray-50 p-4 rounded-lg">
+                                        <h4 className="text-md font-medium text-gray-700 mb-4">Rôles et permissions</h4>
+
+                                        <div className="space-y-4">
+                                            {settings.utilisateurs.roles.map((role) => (
+                                                <div key={role.id} className="flex items-center justify-between p-3 bg-white rounded-md shadow-sm">
+                                                    <div>
+                                                        <span className="font-medium">{role.nom}</span>
+                                                        <p className="text-sm text-gray-500">
+                                                            Permissions: {role.permissions.join(', ')}
+                                                        </p>
+                                                    </div>
+                                                    <button className="text-blue-600 hover:text-blue-800">
+                                                        <Edit className="h-4 w-4" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        <button className="mt-4 inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none">
+                                            <Plus className="h-4 w-4 mr-1" />
+                                            Ajouter un rôle
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeTab === 'rh' && (
+                                <div className="space-y-6">
+                                    <h3 className="text-lg font-medium text-gray-900">Paramètres RH</h3>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="bg-blue-50 p-4 rounded-lg">
+                                            <h4 className="text-md font-medium text-blue-900 mb-4">Types de contrats</h4>
+                                            <ul className="space-y-2">
+                                                {settings.rh.typesContrat.map((type, index) => (
+                                                    <li key={index} className="flex items-center">
+                                                        <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                                                            {type}
+                                                        </span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+
+                                        <div className="bg-green-50 p-4 rounded-lg">
+                                            <h4 className="text-md font-medium text-green-900 mb-4">Politiques de congés (jours/an)</h4>
+                                            <div className="space-y-3">
+                                                <div className="flex justify-between">
+                                                    <span>Congés annuels</span>
+                                                    <span className="font-medium">{settings.rh.politiquesConges.annuel} jours</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span>Congés maladie</span>
+                                                    <span className="font-medium">{settings.rh.politiquesConges.maladie} jours</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span>Congés maternité</span>
+                                                    <span className="font-medium">{settings.rh.politiquesConges.maternite} jours</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span>Congés paternité</span>
+                                                    <span className="font-medium">{settings.rh.politiquesConges.paternite} jours</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeTab === 'paie' && (
+                                <div className="space-y-6">
+                                    <h3 className="text-lg font-medium text-gray-900">Paramètres de paie</h3>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700">Mode de calcul</label>
+                                            <select
+                                                value={settings.paie.modeCalcul}
+                                                onChange={(e) => setSettings({
+                                                    ...settings,
+                                                    paie: {...settings.paie, modeCalcul: e.target.value}
+                                                })}
+                                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                            >
+                                                <option value="fixe">Salaire fixe</option>
+                                                <option value="pourcentage">Pourcentage + fixe</option>
+                                                <option value="variable">Variable selon objectifs</option>
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700">Méthodes de paiement</label>
+                                            <div className="mt-2 space-y-2">
+                                                {settings.paie.methodesPaiement.map((methode, index) => (
+                                                    <div key={index} className="flex items-center">
+                                                        <input
+                                                            type="checkbox"
+                                                            id={`methode-${index}`}
+                                                            defaultChecked
+                                                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                                        />
+                                                        <label htmlFor={`methode-${index}`} className="ml-2 block text-sm text-gray-700">
+                                                            {methode}
+                                                        </label>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeTab === 'securite' && (
+                                <div className="space-y-6">
+                                    <h3 className="text-lg font-medium text-gray-900">Paramètres de sécurité</h3>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700">Complexité des mots de passe</label>
+                                            <select
+                                                value={settings.securite.complexiteMdp}
+                                                onChange={(e) => setSettings({
+                                                    ...settings,
+                                                    securite: {...settings.securite, complexiteMdp: parseInt(e.target.value)}
+                                                })}
+                                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                            >
+                                                <option value="6">6 caractères minimum</option>
+                                                <option value="8">8 caractères minimum</option>
+                                                <option value="12">12 caractères minimum</option>
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700">Durée de validité des mots de passe (jours)</label>
+                                            <input
+                                                type="number"
+                                                value={settings.securite.dureeValiditeMdp}
+                                                onChange={(e) => setSettings({
+                                                    ...settings,
+                                                    securite: {...settings.securite, dureeValiditeMdp: parseInt(e.target.value)}
+                                                })}
+                                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700">Connexions simultanées autorisées</label>
+                                            <input
+                                                type="number"
+                                                value={settings.securite.connexionsSimultanees}
+                                                onChange={(e) => setSettings({
+                                                    ...settings,
+                                                    securite: {...settings.securite, connexionsSimultanees: parseInt(e.target.value)}
+                                                })}
+                                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeTab === 'sauvegarde' && (
+                                <div className="space-y-6">
+                                    <h3 className="text-lg font-medium text-gray-900">Sauvegarde et restauration</h3>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="bg-blue-50 p-4 rounded-lg">
+                                            <h4 className="text-md font-medium text-blue-900 mb-4">Sauvegarde des données</h4>
+                                            <p className="text-sm text-blue-800 mb-4">
+                                                Créez une copie de sauvegarde de toutes les données du système.
+                                            </p>
+                                            <button className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
+                                                <HardDrive   className="h-4 w-4 mr-1" />
+                                                Créer une sauvegarde
+                                            </button>
+                                        </div>
+
+                                        <div className="bg-green-50 p-4 rounded-lg">
+                                            <h4 className="text-md font-medium text-green-900 mb-4">Restauration</h4>
+                                            <p className="text-sm text-green-800 mb-4">
+                                                Restaurez les données à partir d'une sauvegarde précédente.
+                                            </p>
+                                            <div className="flex space-x-2">
+                                                <input
+                                                    type="file"
+                                                    className="hidden"
+                                                    id="backup-file"
+                                                />
+                                                <label htmlFor="backup-file" className="cursor-pointer inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-green-600 hover:bg-green-700">
+                                                    <Database className="h-4 w-4 mr-1" />
+                                                    Choisir un fichier
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-yellow-50 p-4 rounded-lg">
+                                        <h4 className="text-md font-medium text-yellow-900 mb-2">Dernières sauvegardes</h4>
+                                        <div className="text-sm text-yellow-800">
+                                            <p>Aucune sauvegarde disponible</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </ErrorBoundary>
+        );
+    };
+
     const renderPage = () => {
         switch (currentPage) {
             case 'dashboard':
@@ -1037,6 +1767,8 @@ function App() {
                 return <Talents/>
             case 'etat-service':
                 return <EtatService/>
+            case 'parametres':
+                return <Parametres/>
             case 'profil':
                 return <Profil/>
             default:
@@ -1044,7 +1776,7 @@ function App() {
         }
     }
 
-    // Mise à jour: Correction de la condition d'authentification
+    // Mise à jour : Correction de la condition d'authentification
     if (!isAuthenticated) {
         if (showRegister) {
             return <RegisterForm onRegister={handleRegister} onSwitchToLogin={() => setShowRegister(false)} />;

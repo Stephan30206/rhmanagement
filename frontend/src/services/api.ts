@@ -430,6 +430,41 @@ export const authService = {
 
     logout: async () => {
         await api.post('/auth/logout');
+    },
+
+    updateProfile: async (data: any) => {
+        const response = await fetch('/api/utilisateurs/profile', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: JSON.stringify(data)
+        });
+        return response.json();
+    },
+
+    changePassword: async (userId: number, newPassword: string) => {
+        const response = await fetch(`/api/utilisateurs/${userId}/password`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: JSON.stringify({ newPassword })
+        });
+        return response.json();
+    },
+
+    uploadProfilePhoto: async (userId: number, formData: FormData) => {
+        const response = await fetch(`/api/utilisateurs/${userId}/photo`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: formData
+        });
+        return response.json();
     }
 };
 // Interfaces supplémentaires
