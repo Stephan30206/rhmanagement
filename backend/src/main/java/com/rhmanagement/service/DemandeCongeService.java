@@ -17,6 +17,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class DemandeCongeService {
@@ -320,5 +321,91 @@ public class DemandeCongeService {
     public List<DemandeConge> getCongesCommencantBientot(int nombreJours) {
         LocalDate dateLimite = LocalDate.now().plusDays(nombreJours);
         return demandeCongeRepository.findDemandesCommencantBientot(dateLimite);
+    }
+
+    public List<Map<String, Object>> getAllDemandesWithDetails() {
+        List<DemandeConge> demandes = demandeCongeRepository.findAll();
+
+        return demandes.stream().map(demande -> {
+            Map<String, Object> demandeWithDetails = new HashMap<>();
+
+            // Copier les données de base
+            demandeWithDetails.put("id", demande.getId());
+            demandeWithDetails.put("employeId", demande.getEmployeId());
+            demandeWithDetails.put("typeCongeId", demande.getTypeCongeId());
+            demandeWithDetails.put("dateDebut", demande.getDateDebut());
+            demandeWithDetails.put("dateFin", demande.getDateFin());
+            demandeWithDetails.put("motif", demande.getMotif());
+            demandeWithDetails.put("statut", demande.getStatut());
+            demandeWithDetails.put("dateCreation", demande.getDateCreation());
+            demandeWithDetails.put("joursDemandes", demande.getNombreJours());
+
+            // Récupérer et ajouter les détails de l'employé
+            if (demande.getEmployeId() != null) {
+                Optional<Employe> employe = employeRepository.findById(demande.getEmployeId());
+                if (employe.isPresent()) {
+                    Map<String, Object> employeMap = new HashMap<>();
+                    employeMap.put("id", employe.get().getId());
+                    employeMap.put("nom", employe.get().getNom());
+                    employeMap.put("prenom", employe.get().getPrenom());
+                    employeMap.put("matricule", employe.get().getMatricule());
+                    employeMap.put("photoProfil", employe.get().getPhotoProfil());
+                    demandeWithDetails.put("employe", employeMap);
+                }
+            }
+
+            // Récupérer et ajouter les détails du type de congé
+            if (demande.getTypeCongeId() != null) {
+                Optional<TypeConge> typeConge = typeCongeRepository.findById(demande.getTypeCongeId());
+                if (typeConge.isPresent()) {
+                    Map<String, Object> typeCongeMap = new HashMap<>();
+                    typeCongeMap.put("id", typeConge.get().getId());
+                    typeCongeMap.put("nom", typeConge.get().getNom());
+                    typeCongeMap.put("joursAlloues", typeConge.get().getJoursAlloues());
+                    demandeWithDetails.put("typeConge", typeCongeMap);
+                }
+            }
+
+            return demandeWithDetails;
+        }).collect(Collectors.toList());
+    }
+
+    public Map<String, Object> getDemandeDetails(Long id) {
+        Optional<DemandeConge> demandeOpt = demandeCongeRepository.findById(id);
+        if (demandeOpt.isEmpty()) {
+            return null;
+        }
+
+        DemandeConge demande = demandeOpt.get();
+        Map<String, Object> details = new HashMap<>();
+
+        // Détails de l'employé
+        Optional<Employe> employeOpt = employeRepository.findById(demande.getEmployeId());
+        if (employeOpt.isPresent()) {
+            Employe employe = employeOpt.get();
+            details.put("employeNom", employe.getNom());
+            details.put("employePrenom", employe.getPrenom());
+            details.put("employeMatricule", employe.getMatricule());
+        }
+
+        // Détails du type de congé
+        Optional<TypeConge> typeCongeOpt = typeCongeRepository.findById(demande.getTypeCongeId());
+        if (typeCongeOpt.isPresent()) {
+            TypeConge typeConge = typeCongeOpt.get();
+            details.put("typeCongeNom", typeConge.getNom());
+            details.put("typeCongeCode", typeConge.getCode());
+        }
+
+        // Détails de l'approbateur (si existant)
+//        if (demande.getApprouvePar() != null) {
+//            Optional<User> approbateurOpt = userRepository.findById(demande.getApprouvePar());
+//            if (approbateurOpt.isPresent()) {
+//                User approbateur = approbateurOpt.get();
+//                details.put("approbateurNom", approbateur.getNom());
+//                details.put("approbateurPrenom", approbateur.getPrenom());
+//            }
+//        }
+
+        return details;
     }
 }

@@ -9,8 +9,8 @@ interface LoginFormProps {
 
 const LoginForm: React.FC<LoginFormProps> = ({onLogin, onSwitchToRegister }) => {
     const [formData, setFormData] = useState({
-        nom_utilisateur: "", // Changé de 'username' à 'nom_utilisateur'
-        mot_de_passe: "",   // Changé de 'password' à 'mot_de_passe'
+        nomUtilisateur: "",
+        motDePasse: "",
         remember: false,
     });
     const [loading, setLoading] = useState(false);
@@ -24,16 +24,16 @@ const LoginForm: React.FC<LoginFormProps> = ({onLogin, onSwitchToRegister }) => 
         try {
             // Envoi des données avec les bons noms de champs
             const loginData = {
-                nom_utilisateur: formData.nom_utilisateur,
-                mot_de_passe: formData.mot_de_passe,
-                remember: formData.remember
+                nomUtilisateur: formData.nomUtilisateur,
+                motDePasse: formData.motDePasse,
             };
 
-            const response = await authService.login(loginData);
-            localStorage.setItem("token", response.token);
-            onLogin(response.user);
+            const user = await authService.login(loginData);
+            // Stockez l'utilisateur dans le localStorage
+            localStorage.setItem("user", JSON.stringify(user));
+            onLogin(user);
         } catch (err: any) {
-            setError(err.response?.data?.message || "Erreur de connexion");
+            setError(err.message || "Erreur de connexion");
         } finally {
             setLoading(false);
         }
@@ -81,15 +81,16 @@ const LoginForm: React.FC<LoginFormProps> = ({onLogin, onSwitchToRegister }) => 
                         {/* Username */}
                         <div>
                             <label className="block text-sm text-gray-600 mb-1">
-                                Adresse de courriel ou nom d'utilisateur
+                                Nom d'utilisateur ou email
                             </label>
                             <input
                                 type="text"
-                                name="nom_utilisateur" // Changé de 'username' à 'nom_utilisateur'
-                                value={formData.nom_utilisateur}
+                                name="nomUtilisateur"
+                                value={formData.nomUtilisateur}
                                 onChange={handleChange}
                                 required
                                 className="w-full border-b border-gray-400 focus:border-blue-700 focus:outline-none py-2"
+                                placeholder="Votre nom d'utilisateur ou email"
                             />
                         </div>
 
@@ -100,11 +101,12 @@ const LoginForm: React.FC<LoginFormProps> = ({onLogin, onSwitchToRegister }) => 
                             </label>
                             <input
                                 type="password"
-                                name="mot_de_passe" // Changé de 'password' à 'mot_de_passe'
-                                value={formData.mot_de_passe}
+                                name="motDePasse"
+                                value={formData.motDePasse}
                                 onChange={handleChange}
                                 required
                                 className="w-full border-b border-gray-400 focus:border-blue-700 focus:outline-none py-2"
+                                placeholder="Votre mot de passe"
                             />
                         </div>
 
@@ -118,8 +120,8 @@ const LoginForm: React.FC<LoginFormProps> = ({onLogin, onSwitchToRegister }) => 
                                 className="h-4 w-4 text-blue-700"
                             />
                             <span className="text-sm text-gray-600">
-                Se souvenir de moi
-              </span>
+                                Se souvenir de moi
+                            </span>
                         </div>
 
                         {/* Button */}

@@ -3,9 +3,11 @@ package com.rhmanagement.entity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.AccessLevel;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 
 @Getter
 @Setter
@@ -30,7 +32,7 @@ public class DemandeConge {
     private LocalDate dateFin;
 
     @Column(name = "motif", columnDefinition = "TEXT")
-    private String motif; // ← Ceci est un String, pas un null
+    private String motif;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "statut", nullable = false)
@@ -51,8 +53,10 @@ public class DemandeConge {
     @Column(name = "annee", nullable = false)
     private Integer annee;
 
-    @Transient
-    private int joursDemandes;
+    // CORRECTION : Supprimez l'annotation @Setter(AccessLevel.NONE)
+    // et permettez à Lombok de générer le setter
+    @Column(name = "jours_demandes")
+    private Integer joursDemandes;
 
     // Enum pour le statut
     public enum StatutDemande {
@@ -74,8 +78,13 @@ public class DemandeConge {
     // Méthode utilitaire pour calculer le nombre de jours
     public long getNombreJours() {
         if (dateDebut != null && dateFin != null) {
-            return java.time.temporal.ChronoUnit.DAYS.between(dateDebut, dateFin) + 1;
+            return ChronoUnit.DAYS.between(dateDebut, dateFin) + 1;
         }
         return 0;
     }
+
+    // SUPPRIMEZ CE SETTER MANUEL - Lombok le génère automatiquement
+    // public void setJoursDemandes (Integer joursDemandes) {
+    //     this.joursDemandes = joursDemandes;
+    // }
 }

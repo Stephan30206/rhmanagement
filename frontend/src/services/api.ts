@@ -74,6 +74,123 @@ const api = axios.create({
     withCredentials: true,
 });
 
+// Méthode de débogage - vérifiez ce que le serveur attend
+const register = async (userData: any) => {
+    try {
+        console.log('=== DÉBUT TENTATIVE D\'INSCRIPTION ===');
+        console.log('Données brutes reçues:', userData);
+
+        // Formats à tester
+        const payloadsToTry = [
+            {
+                name: 'Format 1 (Anglais complet)',
+                data: {
+                    username: userData.nom_utilisateur,
+                    password: userData.mot_de_passe,
+                    email: userData.email,
+                    lastName: userData.nom,
+                    firstName: userData.prenom,
+                    role: userData.role || 'USER',
+                    telephone: userData.telephone,
+                    adresse: userData.adresse
+                }
+            },
+            {
+                name: 'Format 2 (Français complet)',
+                data: {
+                    nomUtilisateur: userData.nomUtilisateur,
+                    motDePasse: userData.motDePasse,
+                    email: userData.email,
+                    nom: userData.nom,
+                    prenom: userData.prenom,
+                    role: userData.role || 'USER',
+                    telephone: userData.telephone,
+                    adresse: userData.adresse
+                }
+            },
+            {
+                name: 'Format 3 (Mixte)',
+                data: {
+                    username: userData.nomUtilisateur,
+                    password: userData.motDePasse,
+                    email: userData.email,
+                    nom: userData.nom,
+                    prenom: userData.prenom,
+                    role: userData.role || 'USER'
+                }
+            },
+            {
+                name: 'Format 4 (Minimal)',
+                data: {
+                    username: userData.nomUtilisateur,
+                    password: userData.motDePasse,
+                    email: userData.email
+                }
+            }
+        ];
+
+        let lastError: any = null;
+
+        for (const payloadInfo of payloadsToTry) {
+            try {
+                console.log(`\n--- Tentative: ${payloadInfo.name} ---`);
+                console.log('Payload envoyé:', payloadInfo.data);
+
+                const response = await axios.post(`${API_BASE_URL}/auth/register`, payloadInfo.data, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    timeout: 5000 // 5 secondes timeout
+                });
+
+                console.log('✅ SUCCÈS avec format:', payloadInfo.name);
+                console.log('Réponse du serveur:', response.data);
+                return response.data;
+
+            } catch (innerError: any) {
+                lastError = innerError;
+                console.log('❌ ÉCHEC avec format:', payloadInfo.name);
+
+                if (innerError.response) {
+                    // Le serveur a répondu avec un code d'erreur
+                    console.log('Status:', innerError.response.status);
+                    console.log('Erreur du serveur:', innerError.response.data);
+                    console.log('Headers:', innerError.response.headers);
+
+                    // Si c'est une erreur 400, afficher plus de détails
+                    if (innerError.response.status === 400) {
+                        console.log('Détails de l\'erreur 400:', JSON.stringify(innerError.response.data, null, 2));
+                    }
+                } else if (innerError.request) {
+                    // La requête a été faite mais pas de réponse
+                    console.log('Pas de réponse du serveur');
+                    console.log('Request:', innerError.request);
+                } else {
+                    // Erreur lors de la configuration de la requête
+                    console.log('Erreur de configuration:', innerError.message);
+                }
+
+                console.log('--- Fin tentative ---\n');
+            }
+        }
+
+        console.log('=== TOUTES LES TENTATIVES ONT ÉCHOUÉ ===');
+        throw new Error(`Aucun format ne fonctionne. Dernière erreur: ${lastError?.response?.data?.message || lastError?.message}`);
+
+    } catch (error: any) {
+        console.error('=== ERREUR FINALE D\'INSCRIPTION ===');
+        console.error('Message:', error.message);
+
+        if (error.response) {
+            console.error('Dernière réponse erreur:', error.response.data);
+        }
+
+        console.error('=== FIN ERREUR ===');
+
+        throw new Error(error.response?.data?.message || error.message || 'Erreur lors de l\'inscription');
+    }
+};
+
 api.interceptors.response.use(
     (response) => response,
     (error) => {
@@ -402,9 +519,29 @@ export interface RegisterData {
 
 // Nouveau service d'authentification
 export const authService = {
-    login: async (credentials: { nom_utilisateur: string; mot_de_passe: string; remember: boolean }) => {
-        const response = await api.post('/auth/login', credentials);
-        return response.data;
+    login: async (credentials: { nomUtilisateur: string; motDePasse: string }) => {
+        try {
+            const response = await axios.post(`${API_BASE_URL}/auth/login`, credentials, {
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            // Votre backend retourne directement l'utilisateur, pas un objet avec token
+            return response.data;
+        } catch (error: any) {
+            console.error('Erreur de login détaillée:', {
+                status: error.response?.status,
+                data: error.response?.data,
+                message: error.message
+            });
+
+            const errorMessage = error.response?.data?.error ||
+                error.response?.data?.message ||
+                'Erreur de connexion';
+
+            throw new Error(errorMessage);
+        }
     },
 
     register: async (userData: RegisterData) => {
@@ -432,39 +569,34 @@ export const authService = {
         await api.post('/auth/logout');
     },
 
-    updateProfile: async (data: any) => {
-        const response = await fetch('/api/utilisateurs/profile', {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            body: JSON.stringify(data)
-        });
-        return response.json();
+    getProfile: async (): Promise<any> => {
+        const response = await api.get('/auth/profile');
+        return response.data;
     },
 
-    changePassword: async (userId: number, newPassword: string) => {
-        const response = await fetch(`/api/utilisateurs/${userId}/password`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            body: JSON.stringify({ newPassword })
-        });
-        return response.json();
+    updateProfile: async (userData: any): Promise<any> => {
+        const response = await api.put('/auth/profile', userData);
+        return response.data;
     },
 
-    uploadProfilePhoto: async (userId: number, formData: FormData) => {
-        const response = await fetch(`/api/utilisateurs/${userId}/photo`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            body: formData
+    changePassword: async (currentPassword: string, newPassword: string): Promise<any> => {
+        const response = await api.put('/auth/change-password', {
+            currentPassword,
+            newPassword
         });
-        return response.json();
+        return response.data;
+    },
+
+    uploadProfilePhoto: async (file: File): Promise<any> => {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await api.post('/auth/upload-photo', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+        return response.data;
     }
 };
 // Interfaces supplémentaires
@@ -482,49 +614,50 @@ export interface Diplome {
     anneeObtention: string;
 }
 
-// CORRECTION : Utilisez demandeCongeService au lieu de DemandeCongeService
+// Service DemandeConge corrigé
 export const demandeCongeService = {
-    getAllDemandes: async (): Promise<DemandeConge[]> => {
-        const response = await api.get('/demandes-conge');
-        return response.data;
-    },
-
-    getTypesConge: async (): Promise<TypeConge[]> => {
-        // CORRECTION : Utilisez l'endpoint correct
-        const response = await api.get('/types-conge');
-        return response.data;
-    },
-
-    createDemandeConge: async (demande: {
-        employeId: number;
-        typeCongeId: number;
-        dateDebut: string;
-        dateFin: string;
-        motif: string;
-        statut: string
-    }): Promise<DemandeConge> => {
-        const response = await api.post('/demandes-conge', demande);
-        return response.data;
-    },
-
-    updateDemandeConge: async (id: number, demande: Partial<DemandeConge>): Promise<DemandeConge> => {
-        const response = await api.put(`/demandes-conge/${id}`, demande);
-        return response.data;
-    },
-
-    deleteDemandeConge: async (id: number): Promise<void> => {
-        await api.delete(`/demandes-conge/${id}`);
-    },
-    updateDemandeCongeMotif: async (id: number, motif: string): Promise<DemandeConge> => {
-        const response = await api.patch(`/demandes-conge/${id}/motif`, { motif });
-        return response.data;
-    },
-
-    getDemandesByEmployeId: async (employeId: number): Promise<DemandeConge[]> => {
-        const response = await api.get(`/demandes-conge/employe/${employeId}`);
-        return response.data;
-    }
+    getAllDemandes: () => api.get('/demandes-conge'),
+    getById: (id: number) => api.get(`/demandes-conge/${id}`),
+    createDemandeConge: (data: any) => api.post('/demandes-conge', data), // ← Méthode ajoutée
+    create: (data: any) => api.post('/demandes-conge', data),
+    update: (id: number, data: any) => api.put(`/demandes-conge/${id}`, data),
+    delete: (id: number) => api.delete(`/demandes-conge/${id}`),
+    getByEmployeId: (employeId: number) => api.get(`/demandes-conge/employe/${employeId}`),
 };
+
+
+
+// Interface TypeConge ajoutée
+export interface TypeConge {
+    id: number;
+    code: string;
+    nom: string;
+    joursAlloues: number;
+    reportable: boolean;
+    exigences?: string;
+}
+
+// Interface DemandeConge avec relations
+export interface DemandeConge {
+    id: number;
+    employeId: number;
+    typeCongeId: number;
+    dateDebut: string;
+    dateFin: string;
+    motif: string;
+    statut: 'EN_ATTENTE' | 'APPROUVE' | 'REJETE' | 'ANNULE';
+    approuvePar?: number;
+    dateTraitement?: string;
+    motifRejet?: string;
+    dateCreation: string;
+    annee: number;
+    joursDemandes?: number;
+
+    // Relations populées par le backend
+    employe?: Employe;
+    typeConge?: TypeConge;
+}
+
 // Interfaces pour les nouvelles entités
 export interface Competence {
     id?: number;

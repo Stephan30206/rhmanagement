@@ -9,8 +9,8 @@ interface RegisterFormProps {
 
 const RegisterForm: React.FC<RegisterFormProps> = ({ onRegister, onSwitchToLogin }) => {
     const [formData, setFormData] = useState({
-        nom_utilisateur: "",
-        mot_de_passe: "",
+        nomUtilisateur: "",
+        motDePasse: "",
         confirmPassword: "",
         email: "",
         nom: "",
@@ -53,13 +53,13 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onRegister, onSwitchToLogin
         setError("");
 
         // Validation
-        if (formData.mot_de_passe !== formData.confirmPassword) {
+        if (formData.motDePasse !== formData.confirmPassword) {
             setError("Les mots de passe ne correspondent pas");
             setLoading(false);
             return;
         }
 
-        if (formData.mot_de_passe.length < 6) {
+        if (formData.motDePasse.length < 6) {
             setError("Le mot de passe doit contenir au moins 6 caractères");
             setLoading(false);
             return;
@@ -68,8 +68,8 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onRegister, onSwitchToLogin
         try {
             // Créer l'objet userData pour l'inscription
             const userData: RegisterData = {
-                nom_utilisateur: formData.nom_utilisateur,
-                mot_de_passe: formData.mot_de_passe,
+                nomUtilisateur: formData.nomUtilisateur,
+                motDePasse: formData.motDePasse,
                 email: formData.email,
                 nom: formData.nom,
                 prenom: formData.prenom,
@@ -83,7 +83,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onRegister, onSwitchToLogin
             console.log("Réponse du serveur:", response);
 
             // Upload de la photo si elle existe
-            if (photoFile && response.user.id) {
+            if (photoFile && response.id) {
                 try {
                     // Délai pour s'assurer que le token est bien configuré
                     await new Promise(resolve => setTimeout(resolve, 200));
@@ -121,15 +121,14 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onRegister, onSwitchToLogin
 
                     // Stocker la photo en attente malgré l'erreur
                     localStorage.setItem('pending_photo', JSON.stringify({
-                        userId: response.user.id,
+                        userId: response.id,
                         photoData: photoPreview,
                         fileName: photoFile.name
                     }));
                 }
             }
 
-            localStorage.setItem("token", response.token);
-            onRegister(response.user);
+            onRegister(response);
         } catch (err: any) {
             console.error("Erreur d'inscription:", err);
             setError(err.response?.data?.message || err.message || "Erreur lors de l'inscription");
@@ -310,7 +309,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onRegister, onSwitchToLogin
                                     </label>
                                     <input
                                         type="text"
-                                        name="nom_utilisateur"
+                                        name="nomUtilisateur"
                                         value={formData.nom_utilisateur}
                                         onChange={handleChange}
                                         required
@@ -325,7 +324,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onRegister, onSwitchToLogin
                                     </label>
                                     <input
                                         type="password"
-                                        name="mot_de_passe"
+                                        name="motDePasse"
                                         value={formData.mot_de_passe}
                                         onChange={handleChange}
                                         required

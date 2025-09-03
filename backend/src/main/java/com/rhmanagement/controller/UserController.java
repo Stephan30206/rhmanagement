@@ -1,16 +1,16 @@
 package com.rhmanagement.controller;
 
 import com.rhmanagement.entity.Utilisateur;
+import com.rhmanagement.repository.UtilisateurRepository;
 import com.rhmanagement.service.UtilisateurService;
-import io.jsonwebtoken.io.IOException;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.jpa.repository.support.SimpleJpaRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -24,6 +24,9 @@ public class UserController {
 
     @Autowired
     private UtilisateurService utilisateurService;
+
+    @Autowired
+    private UtilisateurRepository utilisateurRepository;
 
     @PostMapping("/{id}/photo")
     public ResponseEntity<?> uploadUserPhoto(
@@ -47,11 +50,10 @@ public class UserController {
             String contentType = file.getContentType();
             if (contentType == null || !contentType.startsWith("image/")) {
                 return ResponseEntity.badRequest()
-                        .body(Map.of("error", "Format de fichier non supporté"));
+                        .body(Map.of("error", "Format de fichier non supporté. Utilisez une image JPEG, PNG ou GIF"));
             }
 
             // Trouver l'utilisateur
-            SimpleJpaRepository utilisateurRepository = null;
             Optional<Utilisateur> utilisateurOpt = utilisateurRepository.findById(id);
             if (utilisateurOpt.isEmpty()) {
                 return ResponseEntity.notFound().build();
@@ -107,5 +109,69 @@ public class UserController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Erreur inattendue: " + e.getMessage()));
         }
+    }
+
+    // Ajoutez également ces endpoints utiles
+
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getUserById(@PathVariable Long id) {
+        Optional<Utilisateur> utilisateur = utilisateurRepository.findById(id);
+        if (utilisateur.isPresent()) {
+            return ResponseEntity.ok(utilisateur.get());
+        } else {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @GetMapping("/{id}/photo")
+    public ResponseEntity<?> getUserPhoto(@PathVariable Long id) {
+        Optional<Utilisateur> utilisateurOpt = utilisateurRepository.findById(id);
+        if (utilisateurOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        Utilisateur utilisateur = utilisateurOpt.get();
+        if (utilisateur.getPhotoProfil() == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        try {
+            Path filePath = Paths.get("uploads", utilisateur.getPhotoProfil());
+            byte[] imageBytes = Files.readAllBytes(filePath);
+
+            return ResponseEntity.ok()
+                    .header("Content-Type", "image/jpeg")
+                    .body(imageBytes);
+
+        } catch (IOException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @DeleteMapping("/{id}/photo")
+    public ResponseEntity<?> deleteUserPhoto(@PathVariable Long id) {
+        Optional<Utilisateur> utilisateurOpt = utilisateurRepository.findById(id);
+        if (utilisateurOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        Utilisateur utilisateur = utilisateurOpt.get();
+        if (utilisateur.getPhotoProfil() != null) {
+            try {
+                Path filePath = Paths.get("uploads", utilisateur.getPhotoProfil());
+                Files.deleteIfExists(filePath);
+
+                utilisateur.setPhotoProfil(null);
+                utilisateurRepository.save(utilisateur);
+
+                return ResponseEntity.ok(Map.of("message", "Photo supprimée avec succès"));
+
+            } catch (IOException e) {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body(Map.of("error", "Erreur lors de la suppression de la photo"));
+            }
+        }
+
+        return ResponseEntity.ok(Map.of("message", "Aucune photo à supprimer"));
     }
 }

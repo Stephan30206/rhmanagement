@@ -1,11 +1,12 @@
+// Utilisateur.java
 package com.rhmanagement.entity;
 
-import com.rhmanagement.entity.Employe;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -19,11 +20,9 @@ public class Utilisateur {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // correspond à `nom_utilisateur`
     @Column(name = "nom_utilisateur", nullable = false, unique = true, length = 50)
     private String nomUtilisateur;
 
-    // correspond à `mot_de_passe`
     @Column(name = "mot_de_passe", nullable = false, length = 255)
     private String motDePasse;
 
@@ -42,15 +41,13 @@ public class Utilisateur {
     @Column(length = 100)
     private String poste;
 
-    // correspond à `photo_profil`
     @Column(name = "photo_profil", length = 255)
     private String photoProfil;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private Role role;
+    private Role role = Role.ADMIN; // Valeur par défaut
 
-    // correspond à `employe_id`
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "employe_id")
     private Employe employe;
@@ -58,9 +55,26 @@ public class Utilisateur {
     @Column(nullable = false)
     private Boolean actif = true;
 
-    // correspond à `date_creation`
     @Column(name = "date_creation", updatable = false)
     private LocalDateTime dateCreation = LocalDateTime.now();
+
+    @Column(name = "date_naissance")
+    private LocalDate dateNaissance;
+
+    @Column(length = 500)
+    private String adresse;
+
+    @Column(length = 1)
+    private String genre; // M ou F
+
+    // Getters pour les nouveaux champs
+    // Méthodes complétées
+    // AJOUTEZ CES CHAMPS POUR L'INSCRIPTION
+    @Column(name = "date_inscription")
+    private LocalDateTime dateInscription;
+
+    @Column(name = "statut", length = 20)
+    private String statut;
 
     public enum Role {
         ADMIN, SECRETAIRE_FEDERAL, RESPONSABLE_DISTRICT, PASTEUR, ASSISTANT_RH
