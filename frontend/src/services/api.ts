@@ -2,6 +2,22 @@ import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
 
+// Add to api.ts
+export interface AffectationPastorale {
+    id: number;
+    pasteur?: Employe;
+    egliseLocale: string;
+    district: string;
+    dateDebut: string;
+    dateFin?: string;
+    fonction: string;
+    statut: 'ACTIVE' | 'TERMINEE' | 'PROVISOIRE';
+    lettreAffectation?: string;
+    observations?: string;
+    dateCreation?: string;
+    dateMiseAJour?: string;
+}
+
 export interface Employe {
     numeroCNAPS: string;
     nombreEnfants: number;
@@ -42,6 +58,7 @@ export interface Employe {
 }
 
 export interface TypeConge {
+    description: string;
     id: number;
     code: string;
     nom: string;
@@ -66,6 +83,102 @@ export interface DemandeConge {
     typeConge?: TypeConge;
 }
 
+// Interfaces pour les absences
+export interface TypeAbsence {
+    id: number;
+    code: string;
+    nom: string;
+    estPaye: boolean;
+    necessiteJustificatif: boolean;
+    plafondAnnuel?: number;
+    couleur: string;
+    description?: string;
+}
+
+export interface Absence {
+    id: number;
+    employeId: number;
+    typeAbsenceId: number;
+    dateAbsence: string;
+    duree: 'JOURNEE' | 'MATIN' | 'APRES_MIDI';
+    motif?: string;
+    statut: 'EN_ATTENTE' | 'VALIDE' | 'REJETE' | 'ANNULE';
+    justificatif?: string;
+    dateCreation: string;
+    dateModification?: string;
+    annee: number;
+    employe?: Employe;
+    typeAbsence?: TypeAbsence;
+}
+
+// Interfaces supplémentaires
+export interface Enfant {
+    id?: number;
+    nom: string;
+    dateNaissance: string;
+}
+
+export interface Diplome {
+    id?: number;
+    typeDiplome: string;
+    intitule: string;
+    ecole: string;
+    anneeObtention: string;
+}
+
+export interface Competence {
+    id?: number;
+    nom: string;
+    niveau: 'DEBUTANT' | 'INTERMEDIAIRE' | 'AVANCE' | 'EXPERT';
+    categorie: string;
+    dateAcquisition?: string;
+    employeId?: number;
+}
+
+export interface Formation {
+    id?: number;
+    intitule: string;
+    organisme: string;
+    dateDebut: string;
+    dateFin?: string;
+    dureeHeures?: number;
+    certificat?: string;
+    employeId?: number;
+}
+
+export interface HistoriquePoste {
+    id?: number;
+    poste: string;
+    organisation: string;
+    dateDebut: string;
+    dateFin?: string;
+    salairePleinTemps?: number;
+    pourcentageSalaire?: number;
+    salaireBase100?: number;
+    employeId?: number;
+}
+
+export interface Document {
+    id?: number;
+    nom: string;
+    typeDocument: string;
+    description?: string;
+    cheminFichier: string;
+    dateUpload: string;
+    employeId?: number;
+}
+
+export interface RegisterData {
+    nom_utilisateur: string;
+    mot_de_passe: string;
+    email: string;
+    nom: string;
+    prenom: string;
+    telephone: string;
+    poste: string;
+    role?: string;
+}
+
 const api = axios.create({
     baseURL: API_BASE_URL,
     headers: {
@@ -74,123 +187,7 @@ const api = axios.create({
     withCredentials: true,
 });
 
-// Méthode de débogage - vérifiez ce que le serveur attend
-const register = async (userData: any) => {
-    try {
-        console.log('=== DÉBUT TENTATIVE D\'INSCRIPTION ===');
-        console.log('Données brutes reçues:', userData);
-
-        // Formats à tester
-        const payloadsToTry = [
-            {
-                name: 'Format 1 (Anglais complet)',
-                data: {
-                    username: userData.nom_utilisateur,
-                    password: userData.mot_de_passe,
-                    email: userData.email,
-                    lastName: userData.nom,
-                    firstName: userData.prenom,
-                    role: userData.role || 'USER',
-                    telephone: userData.telephone,
-                    adresse: userData.adresse
-                }
-            },
-            {
-                name: 'Format 2 (Français complet)',
-                data: {
-                    nomUtilisateur: userData.nomUtilisateur,
-                    motDePasse: userData.motDePasse,
-                    email: userData.email,
-                    nom: userData.nom,
-                    prenom: userData.prenom,
-                    role: userData.role || 'USER',
-                    telephone: userData.telephone,
-                    adresse: userData.adresse
-                }
-            },
-            {
-                name: 'Format 3 (Mixte)',
-                data: {
-                    username: userData.nomUtilisateur,
-                    password: userData.motDePasse,
-                    email: userData.email,
-                    nom: userData.nom,
-                    prenom: userData.prenom,
-                    role: userData.role || 'USER'
-                }
-            },
-            {
-                name: 'Format 4 (Minimal)',
-                data: {
-                    username: userData.nomUtilisateur,
-                    password: userData.motDePasse,
-                    email: userData.email
-                }
-            }
-        ];
-
-        let lastError: any = null;
-
-        for (const payloadInfo of payloadsToTry) {
-            try {
-                console.log(`\n--- Tentative: ${payloadInfo.name} ---`);
-                console.log('Payload envoyé:', payloadInfo.data);
-
-                const response = await axios.post(`${API_BASE_URL}/auth/register`, payloadInfo.data, {
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    timeout: 5000 // 5 secondes timeout
-                });
-
-                console.log('✅ SUCCÈS avec format:', payloadInfo.name);
-                console.log('Réponse du serveur:', response.data);
-                return response.data;
-
-            } catch (innerError: any) {
-                lastError = innerError;
-                console.log('❌ ÉCHEC avec format:', payloadInfo.name);
-
-                if (innerError.response) {
-                    // Le serveur a répondu avec un code d'erreur
-                    console.log('Status:', innerError.response.status);
-                    console.log('Erreur du serveur:', innerError.response.data);
-                    console.log('Headers:', innerError.response.headers);
-
-                    // Si c'est une erreur 400, afficher plus de détails
-                    if (innerError.response.status === 400) {
-                        console.log('Détails de l\'erreur 400:', JSON.stringify(innerError.response.data, null, 2));
-                    }
-                } else if (innerError.request) {
-                    // La requête a été faite mais pas de réponse
-                    console.log('Pas de réponse du serveur');
-                    console.log('Request:', innerError.request);
-                } else {
-                    // Erreur lors de la configuration de la requête
-                    console.log('Erreur de configuration:', innerError.message);
-                }
-
-                console.log('--- Fin tentative ---\n');
-            }
-        }
-
-        console.log('=== TOUTES LES TENTATIVES ONT ÉCHOUÉ ===');
-        throw new Error(`Aucun format ne fonctionne. Dernière erreur: ${lastError?.response?.data?.message || lastError?.message}`);
-
-    } catch (error: any) {
-        console.error('=== ERREUR FINALE D\'INSCRIPTION ===');
-        console.error('Message:', error.message);
-
-        if (error.response) {
-            console.error('Dernière réponse erreur:', error.response.data);
-        }
-
-        console.error('=== FIN ERREUR ===');
-
-        throw new Error(error.response?.data?.message || error.message || 'Erreur lors de l\'inscription');
-    }
-};
-
+// Intercepteur pour le débogage
 api.interceptors.response.use(
     (response) => response,
     (error) => {
@@ -199,13 +196,11 @@ api.interceptors.response.use(
     }
 );
 
-// @ts-ignore
+// Service pour les employés
 export const employeService = {
     uploadPhoto: async (id: number, file: File): Promise<Employe> => {
         const formData = new FormData();
         formData.append('file', file);
-
-        console.log('Envoi photo, ID:', id, 'Fichier:', file.name, 'Taille:', file.size);
 
         const response = await api.post(`/employes/${id}/photo`, formData, {
             headers: {
@@ -215,7 +210,6 @@ export const employeService = {
         return response.data;
     },
 
-    // Fonction pour supprimer la photo
     deletePhoto: async (id: number): Promise<Employe> => {
         const response = await api.delete(`/employes/${id}/photo`);
         return response.data;
@@ -231,76 +225,12 @@ export const employeService = {
         return response.data;
     },
 
-    createEmploye: async (employe: {
-        matricule: string;
-        nom: string;
-        prenom: string;
-        dateNaissance: string;
-        lieuNaissance: string;
-        nationalite: string;
-        cin: string;
-        adresse: string;
-        telephone: string;
-        email: string;
-        photoProfil: string;
-        statutMatrimonial: string;
-        dateMariage: null;
-        contactUrgenceNom: string;
-        contactUrgenceLien: string;
-        contactUrgenceTelephone: string;
-        nomPere: string;
-        nomMere: string;
-        poste: string;
-        organisationEmployeur: string;
-        typeContrat: string;
-        dateDebut: null;
-        dateFin: null;
-        salaireBase: number;
-        pourcentageSalaire: number;
-        statut: string;
-        dateAccreditation: null;
-        niveauAccreditation: string;
-        groupeAccreditation: string;
-        superviseurHierarchique: string;
-        affectationActuelle: string
-    }): Promise<Employe> => {
+    createEmploye: async (employe: Partial<Employe>): Promise<Employe> => {
         const response = await api.post('/employes', employe);
         return response.data;
     },
 
-    updateEmploye: async (id: number, employe: {
-        matricule: string;
-        nom: string;
-        prenom: string;
-        dateNaissance: string;
-        lieuNaissance: string;
-        nationalite: string;
-        cin: string;
-        adresse: string;
-        telephone: string;
-        email: string;
-        photoProfil: string;
-        statutMatrimonial: string;
-        dateMariage: null;
-        contactUrgenceNom: string;
-        contactUrgenceLien: string;
-        contactUrgenceTelephone: string;
-        nomPere: string;
-        nomMere: string;
-        poste: string;
-        organisationEmployeur: string;
-        typeContrat: string;
-        dateDebut: null;
-        dateFin: null;
-        salaireBase: number;
-        pourcentageSalaire: number;
-        statut: string;
-        dateAccreditation: null;
-        niveauAccreditation: string;
-        groupeAccreditation: string;
-        superviseurHierarchique: string;
-        affectationActuelle: string
-    }): Promise<Employe> => {
+    updateEmploye: async (id: number, employe: Partial<Employe>): Promise<Employe> => {
         const response = await api.put(`/employes/${id}`, employe);
         return response.data;
     },
@@ -314,8 +244,6 @@ export const employeService = {
         return response.data;
     },
 
-    // Nouvelles méthodes pour la gestion des enfants
-    // Correction pour les méthodes enfants
     getEnfants: async (employeId: number): Promise<Enfant[]> => {
         const response = await api.get(`/employes/${employeId}/enfants`);
         return response.data;
@@ -330,7 +258,6 @@ export const employeService = {
         await api.delete(`/employes/${employeId}/enfants/${enfantId}`);
     },
 
-    // Correction pour les méthodes diplômes
     getDiplomes: async (employeId: number): Promise<Diplome[]> => {
         const response = await api.get(`/employes/${employeId}/diplomes`);
         return response.data;
@@ -345,7 +272,6 @@ export const employeService = {
         await api.delete(`/employes/${employeId}/diplomes/${diplomeId}`);
     },
 
-    // Méthodes pour l'historique professionnel
     getHistorique: async (employeId: number): Promise<HistoriquePoste[]> => {
         const response = await api.get(`/employes/${employeId}/historique`);
         return response.data;
@@ -365,7 +291,6 @@ export const employeService = {
         await api.delete(`/employes/${employeId}/historique/${historiqueId}`);
     },
 
-// Méthode pour l'export de l'état de service
     exportEtatService: async (employeId: number): Promise<any> => {
         const response = await api.get(`/employes/${employeId}/etat-service/export`, {
             responseType: 'blob'
@@ -373,18 +298,17 @@ export const employeService = {
         return response;
     },
 
-    // Méthodes pour les compétences
-    getCompetences: async (employeId: number): Promise<any[]> => {
+    getCompetences: async (employeId: number): Promise<Competence[]> => {
         const response = await api.get(`/employes/${employeId}/competences`);
         return response.data;
     },
 
-    saveCompetence: async (employeId: number, competence: any): Promise<any> => {
+    saveCompetence: async (employeId: number, competence: Competence): Promise<Competence> => {
         const response = await api.post(`/employes/${employeId}/competences`, competence);
         return response.data;
     },
 
-    updateCompetence: async (employeId: number, competenceId: number, competence: any): Promise<any> => {
+    updateCompetence: async (employeId: number, competenceId: number, competence: Competence): Promise<Competence> => {
         const response = await api.put(`/employes/${employeId}/competences/${competenceId}`, competence);
         return response.data;
     },
@@ -393,45 +317,34 @@ export const employeService = {
         await api.delete(`/employes/${employeId}/competences/${competenceId}`);
     },
 
-    // Méthodes pour les formations
-    getFormations: async (employeId: number): Promise<any[]> => {
+    getFormations: async (employeId: number): Promise<Formation[]> => {
         const response = await api.get(`/employes/${employeId}/formations`);
         return response.data;
     },
 
-    saveFormation: async (employeId: number, formation: any): Promise<any> => {
+    saveFormation: async (employeId: number, formation: Formation): Promise<Formation> => {
         const response = await api.post(`/employes/${employeId}/formations`, formation);
         return response.data;
     },
 
-    updateFormation: async (employeId: number, formationId: number, formation: any): Promise<any> => {
+    updateFormation: async (employeId: number, formationId: number, formation: Formation): Promise<Formation> => {
         const response = await api.put(`/employes/${employeId}/formations/${formationId}`, formation);
         return response.data;
     },
+
     deleteFormation: async (employeId: number, formationId: number): Promise<void> => {
         await api.delete(`/employes/${employeId}/formations/${formationId}`);
     },
 
-    // Méthodes pour les documents
-    uploadDocument: async (employeId: number, file: File, documentData: any): Promise<any> => {
+    uploadDocument: async (employeId: number, file: File, documentData: any): Promise<Document> => {
         const formData = new FormData();
         formData.append('file', file);
         formData.append('nom', documentData.nom);
         formData.append('typeDocument', documentData.typeDocument);
 
-        // Ajouter description seulement si elle existe
         if (documentData.description) {
             formData.append('description', documentData.description);
         }
-
-        console.log('Envoi des données:', {
-            employeId,
-            nom: documentData.nom,
-            typeDocument: documentData.typeDocument,
-            description: documentData.description,
-            fileName: file.name,
-            fileSize: file.size
-        });
 
         const response = await api.post(`/employes/${employeId}/documents`, formData, {
             headers: {
@@ -451,73 +364,7 @@ export const employeService = {
     }
 };
 
-export const userService = {
-    // Méthode d'upload de photo
-    // Ajoutez cette fonction dans userService
-    uploadPhotoWithParam: async (userId: number, file: File, paramName: string) => {
-        const formData = new FormData();
-        formData.append(paramName, file);
-
-        const response = await api.post(`/utilisateurs/${userId}/photo`, formData, {
-            headers: {
-                'Content-Type': 'multipart/form-data',
-            },
-        });
-        return response.data;
-    },
-
-    // Autres méthodes utilisateur
-
-    // Vaovao
-    uploadPhoto: async (userId: number, file: File): Promise<any> => {
-        const formData = new FormData();
-        formData.append('file', file); // Le backend attend 'file'
-
-        console.log('Upload photo utilisateur:', {
-            userId,
-            fileName: file.name,
-            fileSize: file.size,
-            fileType: file.type
-        });
-
-        try {
-            const response = await api.post(`/utilisateurs/${userId}/photo`, formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                },
-            });
-            return response.data;
-        } catch (error: any) {
-            console.error('Erreur upload photo:', error.response?.data);
-            throw error;
-        }
-    },
-
-    getProfile: async (): Promise<any> => {
-        const response = await api.get('/utilisateurs/profile');
-        return response.data;
-    },
-
-    updateProfile: async (userData: any): Promise<any> => {
-        const response = await api.put('/utilisateurs/profile', userData);
-        return response.data;
-    }
-
-};
-
-// Dans services/api.ts
-export interface RegisterData {
-    nom_utilisateur: string;
-    mot_de_passe: string;
-    email: string;
-    nom: string;
-    prenom: string;
-    telephone: string;
-    poste: string;
-    role?: string; // Optionnel, peut être défini par défaut côté serveur
-}
-
-// Nouveau service d'authentification
+// Service pour l'authentification
 export const authService = {
     login: async (credentials: { nomUtilisateur: string; motDePasse: string }) => {
         try {
@@ -526,8 +373,6 @@ export const authService = {
                     'Content-Type': 'application/json',
                 },
             });
-
-            // Votre backend retourne directement l'utilisateur, pas un objet avec token
             return response.data;
         } catch (error: any) {
             console.error('Erreur de login détaillée:', {
@@ -599,109 +444,92 @@ export const authService = {
         return response.data;
     }
 };
-// Interfaces supplémentaires
-export interface Enfant {
-    id?: number;
-    nom: string;
-    dateNaissance: string;
-}
 
-export interface Diplome {
-    id?: number;
-    typeDiplome: string;
-    intitule: string;
-    ecole: string;
-    anneeObtention: string;
-}
-
-// Service DemandeConge corrigé
+// Service pour les demandes de congé
 export const demandeCongeService = {
-    getAllDemandes: () => api.get('/demandes-conge'),
-    getById: (id: number) => api.get(`/demandes-conge/${id}`),
-    createDemandeConge: (data: any) => api.post('/demandes-conge', data), // ← Méthode ajoutée
-    create: (data: any) => api.post('/demandes-conge', data),
-    update: (id: number, data: any) => api.put(`/demandes-conge/${id}`, data),
-    delete: (id: number) => api.delete(`/demandes-conge/${id}`),
-    getByEmployeId: (employeId: number) => api.get(`/demandes-conge/employe/${employeId}`),
+    getAllDemandes: async (): Promise<DemandeConge[]> => {
+        const response = await api.get('/demandes-conge');
+        return response.data;
+    },
+
+    getById: async (id: number): Promise<DemandeConge> => {
+        const response = await api.get(`/demandes-conge/${id}`);
+        return response.data;
+    },
+
+    createDemandeConge: async (data: Partial<DemandeConge>): Promise<DemandeConge> => {
+        const response = await api.post('/demandes-conge', data);
+        return response.data;
+    },
+
+    update: async (id: number, data: Partial<DemandeConge>): Promise<DemandeConge> => {
+        const response = await api.put(`/demandes-conge/${id}`, data);
+        return response.data;
+    },
+
+    delete: async (id: number): Promise<void> => {
+        await api.delete(`/demandes-conge/${id}`);
+    },
+
+    getByEmployeId: async (employeId: number): Promise<DemandeConge[]> => {
+        const response = await api.get(`/demandes-conge/employe/${employeId}`);
+        return response.data;
+    },
+
+    approve: async (id: number): Promise<DemandeConge> => {
+        const response = await api.put(`/demandes-conge/${id}/approve`);
+        return response.data;
+    },
+
+    reject: async (id: number, motif: string): Promise<DemandeConge> => {
+        const response = await api.put(`/demandes-conge/${id}/reject`, { motifRejet: motif });
+        return response.data;
+    },
+
+    cancel: async (id: number): Promise<DemandeConge> => {
+        const response = await api.put(`/demandes-conge/${id}/cancel`);
+        return response.data;
+    },
+
+    deleteDemandeConge: async (id: number): Promise<void> => {
+        await api.delete(`/demandes-conge/${id}`);
+    },
+
+    updateDemandeConge: async (id: number, requestData: {
+        employeId: number;
+        typeCongeId: number;
+        dateDebut: string;
+        dateFin: string;
+        motif: string;
+        statut: "EN_ATTENTE" | "APPROUVE" | "REJETE" | "ANNULE"
+    }): Promise<DemandeConge> => {
+        const response = await api.put(`/demandes-conge/${id}`, requestData);
+        return response.data;
+    },
+
+    getDemandeDetails: async (id: number): Promise<DemandeConge> => {
+        const response = await api.get(`/demandes-conge/${id}/details`);
+        return response.data;
+    },
+
+    // Méthodes supplémentaires utiles
+    getByStatut: async (statut: DemandeConge['statut']): Promise<DemandeConge[]> => {
+        const response = await api.get(`/demandes-conge/statut/${statut}`);
+        return response.data;
+    },
+
+    getByPeriode: async (dateDebut: string, dateFin: string): Promise<DemandeConge[]> => {
+        const response = await api.get(`/demandes-conge/periode?dateDebut=${dateDebut}&dateFin=${dateFin}`);
+        return response.data;
+    },
+
+    getSoldeConge: async (employeId: number, typeCongeId: number): Promise<number> => {
+        const response = await api.get(`/demandes-conge/solde/${employeId}/${typeCongeId}`);
+        return response.data;
+    }
 };
 
-
-
-// Interface TypeConge ajoutée
-export interface TypeConge {
-    id: number;
-    code: string;
-    nom: string;
-    joursAlloues: number;
-    reportable: boolean;
-    exigences?: string;
-}
-
-// Interface DemandeConge avec relations
-export interface DemandeConge {
-    id: number;
-    employeId: number;
-    typeCongeId: number;
-    dateDebut: string;
-    dateFin: string;
-    motif: string;
-    statut: 'EN_ATTENTE' | 'APPROUVE' | 'REJETE' | 'ANNULE';
-    approuvePar?: number;
-    dateTraitement?: string;
-    motifRejet?: string;
-    dateCreation: string;
-    annee: number;
-    joursDemandes?: number;
-
-    // Relations populées par le backend
-    employe?: Employe;
-    typeConge?: TypeConge;
-}
-
-// Interfaces pour les nouvelles entités
-export interface Competence {
-    id?: number;
-    nom: string;
-    niveau: 'DEBUTANT' | 'INTERMEDIAIRE' | 'AVANCE' | 'EXPERT';
-    categorie: string;
-    dateAcquisition?: string;
-    employeId?: number;
-}
-
-export interface Formation {
-    id?: number;
-    intitule: string;
-    organisme: string;
-    dateDebut: string;
-    dateFin?: string;
-    dureeHeures?: number;
-    certificat?: string;
-    employeId?: number;
-}
-
-export interface HistoriquePoste {
-    id?: number;
-    poste: string;
-    organisation: string;
-    dateDebut: string;
-    dateFin?: string;
-    salairePleinTemps?: number;
-    pourcentageSalaire?: number;
-    salaireBase100?: number;
-    employeId?: number;
-}
-
-export interface Document {
-    id?: number;
-    nom: string;
-    typeDocument: string;
-    description?: string;
-    cheminFichier: string;
-    dateUpload: string;
-    employeId?: number;
-}
-
-// CORRECTION : Implémenter correctement le service des types de congé
+// Service pour les types de congé
 export const typeCongeService = {
     getAllTypesConge: async (): Promise<TypeConge[]> => {
         const response = await api.get('/types-conge');
@@ -728,6 +556,175 @@ export const typeCongeService = {
     }
 };
 
+// Service pour les absences
+export const absenceService = {
+    getAllAbsences: async (): Promise<Absence[]> => {
+        const response = await api.get('/absences');
+        return response.data;
+    },
+
+    getAbsenceById: async (id: number): Promise<Absence> => {
+        const response = await api.get(`/absences/${id}`);
+        return response.data;
+    },
+
+    createAbsence: async (data: {
+        employeId: number;
+        typeAbsenceId: number;
+        dateAbsence: string;
+        duree: 'JOURNEE' | 'MATIN' | 'APRES_MIDI';
+        motif?: string;
+        justificatif?: string;
+    }): Promise<Absence> => {
+        const response = await api.post('/absences', data);
+        return response.data;
+    },
+
+    updateAbsence: async (id: number, data: {
+        employeId: number;
+        typeAbsenceId: number;
+        dateAbsence: string;
+        duree: 'JOURNEE' | 'MATIN' | 'APRES_MIDI';
+        motif?: string;
+        justificatif?: string;
+    }): Promise<Absence> => {
+        const response = await api.put(`/absences/${id}`, data);
+        return response.data;
+    },
+
+    deleteAbsence: async (id: number): Promise<void> => {
+        await api.delete(`/absences/${id}`);
+    },
+
+    getByEmployeId: async (employeId: number): Promise<Absence[]> => {
+        const response = await api.get(`/absences/employe/${employeId}`);
+        return response.data;
+    },
+
+    getByStatut: async (statut: Absence['statut']): Promise<Absence[]> => {
+        const response = await api.get(`/absences/statut/${statut}`);
+        return response.data;
+    },
+
+    validate: async (id: number): Promise<Absence> => {
+        const response = await api.put(`/absences/${id}/validate`);
+        return response.data;
+    },
+
+    reject: async (id: number, motif: string): Promise<Absence> => {
+        const response = await api.put(`/absences/${id}/reject`, { motifRejet: motif });
+        return response.data;
+    },
+
+    cancel: async (id: number): Promise<Absence> => {
+        const response = await api.put(`/absences/${id}/cancel`);
+        return response.data;
+    },
+
+    getStatistics: async (annee: number): Promise<any> => {
+        const response = await api.get(`/absences/statistics/${annee}`);
+        return response.data;
+    }
+};
+
+// Service pour les types d'absence
+export const typeAbsenceService = {
+    getAllTypesAbsence: async (): Promise<TypeAbsence[]> => {
+        try {
+            const response = await api.get('/types-absence');
+            return response.data;
+        } catch (error) {
+            console.warn('Endpoint /api/types-absence non disponible, utilisation des données mockées');
+
+            // Données mockées en fallback
+            return [
+                {
+                    id: 1,
+                    code: 'MALADIE',
+                    nom: 'Maladie',
+                    estPaye: true,
+                    necessiteJustificatif: true,
+                    plafondAnnuel: 15,
+                    couleur: '#EF4444',
+                    description: 'Absence pour raison médicale'
+                },
+                {
+                    id: 2,
+                    code: 'CONGE_EXCEPTIONNEL',
+                    nom: 'Congé exceptionnel',
+                    estPaye: true,
+                    necessiteJustificatif: false,
+                    plafondAnnuel: 7,
+                    couleur: '#3B82F6',
+                    description: 'Congé pour événements familiaux exceptionnels'
+                },
+                {
+                    id: 3,
+                    code: 'AUTRE',
+                    nom: 'Autre motif',
+                    estPaye: false,
+                    necessiteJustificatif: false,
+                    couleur: '#6B7280',
+                    description: 'Autres types d\'absence'
+                }
+            ];
+        }
+    },
+
+    getTypeAbsenceById: async (id: number): Promise<TypeAbsence> => {
+        const response = await api.get(`/types-absence/${id}`); // Enlevez /api/
+        return response.data;
+    },
+
+    createTypeAbsence: async (typeAbsence: Omit<TypeAbsence, 'id'>): Promise<TypeAbsence> => {
+        const response = await api.post('/types-absence', typeAbsence); // Enlevez /api/
+        return response.data;
+    },
+
+    updateTypeAbsence: async (id: number, typeAbsence: Partial<TypeAbsence>): Promise<TypeAbsence> => {
+        const response = await api.put(`/types-absence/${id}`, typeAbsence); // Enlevez /api/
+        return response.data;
+    },
+
+    deleteTypeAbsence: async (id: number): Promise<void> => {
+        await api.delete(`/types-absence/${id}`); // Enlevez /api/
+    }
+};
+// Service pour les utilisateurs
+export const userService = {
+    uploadPhoto: async (userId: number, file: File): Promise<any> => {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await api.post(`/utilisateurs/${userId}/photo`, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+        return response.data;
+    },
+
+    uploadPhotoWithParam: async (userId: number, file: File, paramName: string): Promise<any> => {
+        const formData = new FormData();
+        formData.append(paramName, file);
+
+        const response = await api.post(`/utilisateurs/${userId}/photo`, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+        return response.data;
+    },
+
+    getProfile: async (): Promise<any> => {
+        const response = await api.get('/utilisateurs/profile');
+        return response.data;
+    },
+
+    updateProfile: async (userData: any): Promise<any> => {
+        const response = await api.put('/utilisateurs/profile', userData);
+        return response.data;
+    }
+};
 
 export default api;
-

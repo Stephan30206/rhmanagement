@@ -2,6 +2,7 @@ import React, {useState, useEffect} from 'react'
 import './styles/App.css'
 import {
     Users,
+    Clock,
     Calendar,
     FileText,
     Award,
@@ -9,12 +10,13 @@ import {
     Home,
     Menu,
     X,
+    Church,
     Plus,
-    Search,
     Edit,
     Trash2,
     Eye,
     Download,
+    CheckCircle,
     User,
     LogOut,
     Bell,
@@ -27,15 +29,16 @@ import {
     CreditCard,
     Shield,
     Database,
+    XCircle,
     HardDrive,
-    Camera,
-    CheckCircle,
-    XCircle
+    Camera
 } from 'lucide-react'
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from "recharts";
+
 
 import EmployeForm from "../components/EmployeForm.tsx";
 import EmployeDetails from "../components/EmployeDetails.tsx";
-import {employeService, type Employe, demandeCongeService, type DemandeConge, authService} from '../services/api';
+import {employeService, type Employe, authService} from '../services/api';
 import DemandeCongeForm from '../components/DemandeCongeForm';
 import LoginForm from '../components/LoginForm.tsx';
 import RegisterForm from "../components/RegisterForm.tsx";
@@ -43,6 +46,9 @@ import Documents from '../components/Documents';
 import Talents from '../components/Talents';
 import EtatService from '../components/EtatService';
 import api from "../services/api";
+import AbsenceList from '../components/AbsenceList'; // Nouvel import
+import AbsenceForm from '../components/AbsenceForm';
+import CarrierePastoralePage from '../components/CarrierePastoralePage';
 
 // Error Boundary Component
 class ErrorBoundary extends React.Component<
@@ -124,11 +130,11 @@ function App() {
     }, []);
 
 // Et modifiez la fonction qui change de page
-    const handlePageChange = (pageId: string) => {
+    {/*const handlePageChange = (pageId: string) => {
         setCurrentPage(pageId);
         setSidebarOpen(false);
         localStorage.setItem('currentPage', pageId);
-    };
+    };*/}
 
     const handleRegister = (userData: any) => {
         setUser(userData);
@@ -294,6 +300,7 @@ function App() {
         }
     }
 
+    // Dans App.tsx, remplacez la fonction handleSearch par celle-ci :
     const handleSearch = async (term: string) => {
         setSearchTerm(term);
 
@@ -313,7 +320,7 @@ function App() {
                 setLoading(false);
             }
         }
-    }
+    };
 
     const handleDeleteEmploye = async (id: number) => {
         if (window.confirm('Êtes-vous sûr de vouloir supprimer cet employé ?')) {
@@ -331,6 +338,8 @@ function App() {
         {id: 'dashboard', name: 'Tableau de bord', icon: Home},
         {id: 'employes', name: 'Employés', icon: Users},
         {id: 'conges', name: 'Congés', icon: Calendar},
+        {id: 'carriere-pastorale', name: 'Carrière Pastorale', icon: Church},
+        {id: 'absences', name: 'Absences', icon: Clock},
         {id: 'documents', name: 'Documents', icon: FileText},
         {id: 'talents', name: 'Talents', icon: Award},
         {id: 'etat-service', name: 'État de service', icon: BarChart3},
@@ -423,23 +432,16 @@ function App() {
                         </button>
 
                         {/* Barre de recherche */}
-                        <div className="w-64 lg:w-80">
-                            <div className="relative">
-                                <div className="pointer-events-none absolute inset-y-0 left-0 pl-3 flex items-center">
-                                    <Search className="h-5 w-5 text-gray-400"/>
-                                </div>
-                               <input
-                                    type="text"
-                                    placeholder="Rechercher..."
-                                    value={searchTerm}
-                                    onChange={(e) => {
-                                        setSearchTerm(e.target.value);
-                                        handleSearch(e.target.value); // Appeler handleSearch directement
-                                    }}
-                                    className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                                />
-                            </div>
-                        </div>
+                        <input
+                            type="text"
+                            placeholder="Rechercher..."
+                            value={searchTerm}
+                            onChange={(e) => {
+                                setSearchTerm(e.target.value);
+                                handleSearch(e.target.value);
+                            }}
+                            className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                        />
                     </div>
 
                     {/* Partie droite - Notifications + Paramètres + Profil */}
@@ -607,29 +609,36 @@ function App() {
 
                         <div className="bg-white shadow rounded-lg p-6">
                             <h3 className="text-lg font-medium text-gray-900 mb-4">Statistiques des postes</h3>
-                            <div className="space-y-3">
-                                {postes.length > 0 ? postes.map(poste => {
-                                    const count = safeEmployes.filter(e => e.poste === poste).length;
-                                    const percentage = totalEmployes > 0 ? (count / totalEmployes) * 100 : 0;
-
-                                    return (
-                                        <div key={poste}>
-                                            <div className="flex justify-between text-sm text-gray-700 mb-1">
-                                                <span>{poste?.replace('_', ' ')}</span>
-                                                <span>{count}</span>
-                                            </div>
-                                            <div className="w-full bg-gray-200 rounded-full h-2">
-                                                <div
-                                                    className="bg-blue-500 h-2 rounded-full"
-                                                    style={{width: `${percentage}%`}}
-                                                ></div>
-                                            </div>
-                                        </div>
-                                    );
-                                }) : (
-                                    <p className="text-sm text-gray-500">Aucune statistique disponible</p>
-                                )}
-                            </div>
+                            {postes.length > 0 ? (
+                                <ResponsiveContainer width="100%" height={300}>
+                                    <PieChart>
+                                        <Pie
+                                            data={postes.map(poste => {
+                                                const count = safeEmployes.filter(e => e.poste === poste).length;
+                                                return { name: poste?.replace('_', ' '), value: count };
+                                            })}
+                                            dataKey="value"
+                                            nameKey="name"
+                                            cx="50%"
+                                            cy="50%"
+                                            outerRadius={100}
+                                            fill="#3B82F6"
+                                            label
+                                        >
+                                            {postes.map((poste, index) => (
+                                                <Cell
+                                                    key={`cell-${poste}`}
+                                                    fill={["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#6366F1", "#14B8A6"][index % 6]}
+                                                />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip />
+                                        <Legend />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <p className="text-sm text-gray-500">Aucune statistique disponible</p>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -787,14 +796,15 @@ function App() {
     // Composant Conges corrigé dans App.tsx
     const Conges = () => {
         const [showDemandeForm, setShowDemandeForm] = useState(false);
-        const [demandes, setDemandes] = useState<any[]>([]); // Type any pour les données avec relations
+        const [selectedDemande, setSelectedDemande] = useState<any>(null);
+        const [mode, setMode] = useState<'create' | 'edit' | 'view'>('create');
+        const [demandes, setDemandes] = useState<any[]>([]);
         const [loading, setLoading] = useState(true);
         const [error, setError] = useState('');
 
         const loadDemandes = async () => {
             try {
                 setLoading(true);
-                // Utiliser l'endpoint qui renvoie les données avec relations
                 const response = await api.get('/demandes-conge');
                 const data = response.data;
                 setDemandes(Array.isArray(data) ? data : []);
@@ -813,7 +823,35 @@ function App() {
         }, []);
 
         const handleCreateDemande = () => {
+            setSelectedDemande(null);
+            setMode('create');
             setShowDemandeForm(true);
+        };
+
+        const handleViewDemande = (demande: any) => {
+            setSelectedDemande(demande);
+            setMode('view');
+            setShowDemandeForm(true);
+        };
+
+        const handleEditDemande = (demande: any) => {
+            setSelectedDemande(demande);
+            setMode('edit');
+            setShowDemandeForm(true);
+        };
+
+        const handleDeleteDemande = async (demandeId: number) => {
+            if (!window.confirm('Êtes-vous sûr de vouloir supprimer cette demande ?')) {
+                return;
+            }
+
+            try {
+                await api.delete(`/demandes-conge/${demandeId}`);
+                loadDemandes(); // Recharger la liste
+            } catch (err) {
+                console.error('Erreur lors de la suppression:', err);
+                alert('Erreur lors de la suppression de la demande');
+            }
         };
 
         const handleApproveDemande = async (demandeId: number) => {
@@ -965,18 +1003,19 @@ function App() {
                                                     {new Date(demande.dateDebut).toLocaleDateString('fr-FR')} - {new Date(demande.dateFin).toLocaleDateString('fr-FR')}
                                                     <br/>
                                                     <span className="text-xs text-gray-500">
-                                                    ({demande.joursDemandes || 0} jours)
-                                                </span>
+                            ({demande.joursDemandes || 0} jours)
+                          </span>
                                                 </>
                                             ) : 'N/A'}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatutBadgeClass(demande.statut)}`}>
-                                            {formatStatut(demande.statut)}
-                                        </span>
+                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatutBadgeClass(demande.statut)}`}>
+                        {formatStatut(demande.statut)}
+                      </span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium flex space-x-2">
                                             <button
+                                                onClick={() => handleViewDemande(demande)}
                                                 className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-100"
                                                 title="Voir détails"
                                             >
@@ -1002,12 +1041,25 @@ function App() {
                                                 </>
                                             )}
 
-                                            <button className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-100">
-                                                <Edit className="h-4 w-4"/>
-                                            </button>
-                                            <button className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-100">
-                                                <Trash2 className="h-4 w-4"/>
-                                            </button>
+                                            {demande.statut === 'EN_ATTENTE' && (
+                                                <button
+                                                    onClick={() => handleEditDemande(demande)}
+                                                    className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-100"
+                                                    title="Modifier"
+                                                >
+                                                    <Edit className="h-4 w-4"/>
+                                                </button>
+                                            )}
+
+                                            {demande.statut === 'EN_ATTENTE' && (
+                                                <button
+                                                    onClick={() => handleDeleteDemande(demande.id)}
+                                                    className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-100"
+                                                    title="Supprimer"
+                                                >
+                                                    <Trash2 className="h-4 w-4"/>
+                                                </button>
+                                            )}
                                         </td>
                                     </tr>
                                 ))}
@@ -1018,10 +1070,63 @@ function App() {
 
                     {showDemandeForm && (
                         <DemandeCongeForm
-                            onClose={() => setShowDemandeForm(false)}
+                            demande={selectedDemande}
+                            mode={mode}
+                            onClose={() => {
+                                setShowDemandeForm(false);
+                                setSelectedDemande(null);
+                            }}
                             onSave={() => {
                                 setShowDemandeForm(false);
+                                setSelectedDemande(null);
                                 loadDemandes();
+                            }}
+                        />
+                    )}
+                </div>
+            </ErrorBoundary>
+        );
+    };
+
+    const Absences = () => {
+        const [showAbsenceForm, setShowAbsenceForm] = useState(false);
+        const [selectedAbsence, setSelectedAbsence] = useState<any>(null);
+
+        return (
+            <ErrorBoundary>
+                <div className="space-y-6">
+                    <div className="sm:flex sm:items-center sm:justify-between">
+                        <div>
+                            <h2 className="text-3xl font-bold text-gray-900">Gestion des Absences</h2>
+                            <p className="mt-2 text-sm text-gray-600">
+                                Gestion des absences et congés exceptionnels des employés
+                            </p>
+                        </div>
+                        <button
+                            onClick={() => setShowAbsenceForm(true)}
+                            className="inline-flex items-center px-4 py-2 rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+                        >
+                            <Plus className="h-4 w-4 mr-2"/>
+                            Nouvelle absence
+                        </button>
+                    </div>
+
+                    <AbsenceList
+                        onEditAbsence={setSelectedAbsence}
+                        onCreateAbsence={() => setShowAbsenceForm(true)}
+                    />
+
+                    {showAbsenceForm && (
+                        <AbsenceForm
+                            absence={selectedAbsence}
+                            onClose={() => {
+                                setShowAbsenceForm(false);
+                                setSelectedAbsence(null);
+                            }}
+                            onSave={() => {
+                                setShowAbsenceForm(false);
+                                setSelectedAbsence(null);
+                                // Vous pourriez vouloir recharger la liste ici
                             }}
                         />
                     )}
@@ -1542,14 +1647,53 @@ function App() {
                     return;
                 }
 
-                // CORRECTION: Envoyez formData directement
-                const updatedUser = await authService.updateProfile(formData);
+                // Structurez les données selon ce que l'API attend
+                // Utilisez les mêmes noms de champs que votre backend
+                const profileData = {
+                    nom: formData.nom.trim(),
+                    prenom: formData.prenom.trim(),
+                    email: formData.email.trim() || null,
+                    telephone: formData.telephone.trim() || null,
+                    poste: formData.poste.trim() || null,
+                    adresse: formData.adresse.trim() || null,
+                    dateNaissance: formData.dateNaissance || null,
+                    genre: formData.genre || null
+                };
+
+                // Supprimez les champs vides/null pour éviter les erreurs de validation
+                const cleanedData = Object.fromEntries(
+                    Object.entries(profileData).filter(([_, value]) => value !== null && value !== '')
+                );
+
+                console.log('Données nettoyées envoyées au serveur:', cleanedData);
+
+                const updatedUser = await authService.updateProfile(cleanedData);
                 setUser(updatedUser);
                 setIsEditing(false);
                 alert('Profil mis à jour avec succès!');
-            } catch (error: any) {
-                console.error('Erreur lors de la mise à jour du profil:', error);
-                alert(error.response?.data?.message || 'Erreur lors de la mise à jour du profil');
+            } catch (error) {
+                console.error('Erreur détaillée:', error.response?.data);
+                console.error('Status:', error.response?.status);
+                console.error('Headers:', error.response?.headers);
+
+                // Gestion d'erreur plus détaillée
+                let errorMessage = 'Erreur lors de la mise à jour du profil';
+
+                if (error.response?.data?.message) {
+                    errorMessage = error.response.data.message;
+                } else if (error.response?.data?.error) {
+                    errorMessage = error.response.data.error;
+                } else if (error.response?.data?.errors) {
+                    // Si l'API renvoie des erreurs de validation
+                    const validationErrors = error.response.data.errors;
+                    if (Array.isArray(validationErrors)) {
+                        errorMessage = validationErrors.join(', ');
+                    } else if (typeof validationErrors === 'object') {
+                        errorMessage = Object.values(validationErrors).join(', ');
+                    }
+                }
+
+                alert(errorMessage);
             } finally {
                 setSavingProfile(false);
             }
@@ -2173,6 +2317,10 @@ function App() {
                 return <Employes/>
             case 'conges':
                 return <Conges/>
+            case 'absences': // Nouveau cas
+                return <Absences/>
+            case 'carriere-pastorale': // Nouveau cas
+                return <CarrierePastoralePage/>
             case 'documents':
                 return <Documents/>
             case 'talents':

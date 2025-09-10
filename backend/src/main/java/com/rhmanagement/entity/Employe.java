@@ -160,6 +160,11 @@ public class Employe {
     @JsonIgnore
     private List<Document> documents;
 
+    // Ajoutez cette relation dans la classe Employe
+    @OneToMany(mappedBy = "pasteur", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @JsonIgnore
+    private List<AffectationPastorale> affectationsPastorales = new ArrayList<>();
+
     @Column(name = "date_creation", updatable = false)
     private LocalDate dateCreation = LocalDate.now();
 
@@ -173,7 +178,7 @@ public class Employe {
 
     public enum Poste {
         PASTEUR_TITULAIRE, PASTEUR_ASSOCIE, EVANGELISTE, ANCIEN, MISSIONNAIRE,
-        ENSEIGNANT, SECRETAIRE_EXECUTIF, TRESORIER, ASSISTANT_RH, AUTRE
+        ENSEIGNANT, SECRETAIRE_EXECUTIF, TRESORIER, ASSISTANT_RH, PASTEUR_TITURLAIRE, AUTRE
     }
 
     public enum TypeContrat {

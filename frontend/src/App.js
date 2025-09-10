@@ -11,9 +11,9 @@ import {
     Plus,
     Search,
     Edit,
-    Trash2
+    Trash2, Clock
 } from 'lucide-react';
-
+import AbsenceList from '../components/AbsenceList';
 function App() {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [currentPage, setCurrentPage] = useState('dashboard');
@@ -44,10 +44,13 @@ function App() {
         { id: 'dashboard', name: 'Tableau de bord', icon: Home },
         { id: 'employes', name: 'Employés', icon: Users },
         { id: 'conges', name: 'Congés', icon: Calendar },
+        {id: 'absences', name: 'Absences', icon: Clock},
+        {id: 'absences', name: 'Absences', icon: Calendar},
         { id: 'documents', name: 'Documents', icon: FileText },
         { id: 'talents', name: 'Talents', icon: Award },
         { id: 'etat-service', name: 'État de service', icon: BarChart3 }
     ];
+
 
     const Sidebar = () => (
         <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-slate-800 text-white transform ${
@@ -389,6 +392,8 @@ function App() {
                         <p className="mt-1 text-sm text-gray-500">Cette fonctionnalité sera bientôt disponible.</p>
                     </div>
                 );
+            case 'absences':
+                return <Absences/>
             case 'documents':
                 return (
                     <div className="text-center py-12">

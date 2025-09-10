@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Edit, Mail, Phone, MapPin, User, Briefcase, Download, History, GraduationCap, Users, Shield, Calendar } from 'lucide-react';
 import { type Employe, employeService } from '../services/api';
+import CarrierePastorale from "./CarrierePastorale.tsx";
 
 interface EmployeDetailsProps {
     employe: Employe;
@@ -375,6 +376,13 @@ const EmployeDetails: React.FC<EmployeDetailsProps> = ({ employe, onClose, onEdi
                             <p className="text-gray-500 italic">Aucun diplôme enregistré</p>
                         )}
                     </div>
+
+                    // Dans EmployeDetails.tsx, ajoutez cette condition
+                    {employe.poste.includes('PASTEUR') || employe.poste.includes('EVANGELISTE') || employe.poste.includes('MISSIONNAIRE') ? (
+                        <div className="mt-6">
+                            <CarrierePastorale employe={employe} />
+                        </div>
+                    ) : null}
 
                     {/* Informations professionnelles */}
                     <div>

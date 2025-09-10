@@ -4,14 +4,19 @@ import com.rhmanagement.entity.Utilisateur;
 import com.rhmanagement.repository.UtilisateurRepository;
 import com.rhmanagement.service.AuthService;
 import com.rhmanagement.service.UtilisateurService;
+import com.rhmanagement.service.FileStorageService;
+import lombok.Data;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.Map;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -29,6 +34,9 @@ public class AuthController {
 
     @Autowired
     private UtilisateurService utilisateurService;
+
+    @Autowired
+    private FileStorageService fileStorageService;
 
     @PostMapping("/test")
     public ResponseEntity<?> test(@RequestBody Map<String, Object> data) {
@@ -105,45 +113,114 @@ public class AuthController {
     }
 
     @GetMapping("/profile")
-    public ResponseEntity<Utilisateur> getCurrentUser() {
+    public ResponseEntity<Utilisateur> getCurrentUser(Authentication authentication) {
         try {
-            Utilisateur user = authService.getCurrentUser();
-            return ResponseEntity.ok(user);
+            String username = authentication.getName();
+            Optional<Utilisateur> userOptional = utilisateurRepository.findByNomUtilisateur(username);
+
+            if (userOptional.isEmpty()) {
+                return ResponseEntity.status(404).build();
+            }
+
+            return ResponseEntity.ok(userOptional.get());
         } catch (Exception e) {
             return ResponseEntity.status(401).build();
         }
     }
 
     @PutMapping("/profile")
-    public ResponseEntity<Utilisateur> updateProfile(@RequestBody Utilisateur userDetails) {
+    public ResponseEntity<?> updateProfile(
+            @RequestBody ProfileUpdateRequest request,
+            Authentication authentication) {
+
         try {
-            Utilisateur updatedUser = authService.updateProfile(userDetails);
+            String username = authentication.getName();
+            Utilisateur user = utilisateurRepository.findByNomUtilisateur(username)
+                    .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+
+            // Mettre à jour les champs
+            if (request.getNom() != null) user.setNom(request.getNom());
+            if (request.getPrenom() != null) user.setPrenom(request.getPrenom());
+            if (request.getEmail() != null) user.setEmail(request.getEmail());
+            if (request.getTelephone() != null) user.setTelephone(request.getTelephone());
+            if (request.getPoste() != null) user.setPoste(request.getPoste());
+
+            Utilisateur updatedUser = utilisateurRepository.save(user);
+
             return ResponseEntity.ok(updatedUser);
+
         } catch (Exception e) {
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "Erreur lors de la mise à jour: " + e.getMessage()
+            ));
         }
     }
 
     @PutMapping("/change-password")
-    public ResponseEntity<?> changePassword(@RequestBody Map<String, String> passwords) {
+    public ResponseEntity<?> changePassword(
+            @RequestBody Map<String, String> passwords,
+            Authentication authentication) {
         try {
-            authService.changePassword(
-                    passwords.get("currentPassword"),
-                    passwords.get("newPassword")
-            );
-            return ResponseEntity.ok().build();
+            String username = authentication.getName();
+            Utilisateur user = utilisateurRepository.findByNomUtilisateur(username)
+                    .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+
+            String currentPassword = passwords.get("currentPassword");
+            String newPassword = passwords.get("newPassword");
+
+            // Vérifier l'ancien mot de passe
+            if (!passwordEncoder.matches(currentPassword, user.getMotDePasse())) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Mot de passe actuel incorrect"));
+            }
+
+            // Hasher et sauvegarder le nouveau mot de passe
+            user.setMotDePasse(passwordEncoder.encode(newPassword));
+            utilisateurRepository.save(user);
+
+            return ResponseEntity.ok().body(Map.of("message", "Mot de passe modifié avec succès"));
+
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 
-    @PostMapping("/upload-photo")
-    public ResponseEntity<?> uploadProfilePhoto(@RequestParam("file") MultipartFile file) {
+    @PostMapping(value = "/upload-photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> uploadProfilePhoto(
+            @RequestParam("file") MultipartFile file,
+            Authentication authentication) {
+
         try {
-            Utilisateur user = authService.uploadProfilePhoto(file);
-            return ResponseEntity.ok(user);
+            String username = authentication.getName();
+            Utilisateur user = utilisateurRepository.findByNomUtilisateur(username)
+                    .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+
+            // Sauvegarder le fichier
+            String fileName = fileStorageService.storeFile(file);
+
+            // Mettre à jour le profil utilisateur
+            user.setPhotoProfil(fileName);
+            Utilisateur updatedUser = utilisateurRepository.save(user);
+
+            return ResponseEntity.ok().body(Map.of(
+                    "message", "Photo uploadée avec succès",
+                    "fileName", fileName,
+                    "user", updatedUser
+            ));
+
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "Erreur lors de l'upload: " + e.getMessage()
+            ));
         }
+    }
+
+    // Classe pour la requête de mise à jour du profil
+    @Data
+    public static class ProfileUpdateRequest {
+        private String nom;
+        private String prenom;
+        private String email;
+        private String telephone;
+        private String poste;
     }
 }
