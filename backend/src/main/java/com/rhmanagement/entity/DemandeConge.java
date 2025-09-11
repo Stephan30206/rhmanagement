@@ -3,7 +3,6 @@ package com.rhmanagement.entity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
-import lombok.AccessLevel;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -22,8 +21,8 @@ public class DemandeConge {
     @Column(name = "employe_id", nullable = false)
     private Long employeId;
 
-    @Column(name = "type_conge_id", nullable = false)
-    private Integer typeCongeId;
+    @Column(name = "type_conge", nullable = false, length = 100)
+    private String typeConge;
 
     @Column(name = "date_debut", nullable = false)
     private LocalDate dateDebut;
@@ -53,9 +52,7 @@ public class DemandeConge {
     @Column(name = "annee", nullable = false)
     private Integer annee;
 
-    // CORRECTION : Supprimez l'annotation @Setter(AccessLevel.NONE)
-    // et permettez à Lombok de générer le setter
-    @Column(name = "jours_demandes")
+    @Column(name = "jours_demandes", insertable = false, updatable = false)
     private Integer joursDemandes;
 
     // Enum pour le statut
@@ -76,15 +73,10 @@ public class DemandeConge {
     }
 
     // Méthode utilitaire pour calculer le nombre de jours
-    public long getNombreJours() {
-        if (dateDebut != null && dateFin != null) {
-            return ChronoUnit.DAYS.between(dateDebut, dateFin) + 1;
-        }
-        return 0;
-    }
-
-    // SUPPRIMEZ CE SETTER MANUEL - Lombok le génère automatiquement
-    // public void setJoursDemandes (Integer joursDemandes) {
-    //     this.joursDemandes = joursDemandes;
-    // }
+//    public long getNombreJours() {
+//        if (dateDebut != null && dateFin != null) {
+//            return ChronoUnit.DAYS.between(dateDebut, dateFin) + 1;
+//        }
+//        return 0;
+//    }
 }

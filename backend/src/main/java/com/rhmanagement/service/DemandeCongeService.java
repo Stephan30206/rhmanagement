@@ -2,10 +2,8 @@ package com.rhmanagement.service;
 
 import com.rhmanagement.entity.DemandeConge;
 import com.rhmanagement.entity.Employe;
-import com.rhmanagement.entity.TypeConge;
 import com.rhmanagement.repository.DemandeCongeRepository;
 import com.rhmanagement.repository.EmployeRepository;
-import com.rhmanagement.repository.TypeCongeRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,9 +25,6 @@ public class DemandeCongeService {
 
     @Autowired
     private EmployeRepository employeRepository;
-
-    @Autowired
-    private TypeCongeRepository typeCongeRepository;
 
     public List<DemandeConge> getAllDemandes() {
         return demandeCongeRepository.findAll();
@@ -198,21 +193,6 @@ public class DemandeCongeService {
                     .orElseThrow(() -> new RuntimeException("Employé non trouvé avec l'ID: " + demande.getEmployeId()));
         }
 
-        // Vérifier que le type de congé existe
-        if (demande.getTypeCongeId() != null) {
-            TypeConge typeConge = typeCongeRepository.findById(demande.getTypeCongeId())
-                    .orElseThrow(() -> new RuntimeException("Type de congé non trouvé avec l'ID: " + demande.getTypeCongeId()));
-
-            // Vérifier que le nombre de jours demandés ne dépasse pas le nombre alloué
-            if (demande.getDateDebut() != null && demande.getDateFin() != null) {
-                long joursDemandes = calculateWorkingDays(demande.getDateDebut(), demande.getDateFin());
-                if (joursDemandes > typeConge.getJoursAlloues()) {
-                    throw new RuntimeException("Le nombre de jours demandés (" + joursDemandes +
-                            ") dépasse le nombre alloué (" + typeConge.getJoursAlloues() + ")");
-                }
-            }
-        }
-
         // Vérifier les dates
         if (demande.getDateDebut() != null && demande.getDateFin() != null) {
             if (demande.getDateDebut().isAfter(demande.getDateFin())) {
@@ -232,19 +212,6 @@ public class DemandeCongeService {
                 throw new RuntimeException("Il existe déjà une demande de congé approuvée pour cette période");
             }
         }
-    }
-
-    /**
-     * Obtenir le solde de congés restant pour un employé et un type de congé
-     */
-    public int getSoldeCongeRestant(Long employeId, Long typeCongeId, int annee) {
-        TypeConge typeConge = typeCongeRepository.findById(Math.toIntExact(typeCongeId))
-                .orElseThrow(() -> new RuntimeException("Type de congé non trouvé"));
-
-        // Utiliser la méthode optimisée du repository
-        Integer joursUtilises = demandeCongeRepository.countJoursUtilises(employeId, typeCongeId, annee);
-
-        return typeConge.getJoursAlloues() - (joursUtilises != null ? joursUtilises : 0);
     }
 
     /**
@@ -286,22 +253,6 @@ public class DemandeCongeService {
     }
 
     /**
-     * Obtenir les statistiques par type de congé pour une année
-     */
-    public Map<String, Long> getStatistiquesParTypeConge(Integer annee) {
-        List<Object[]> statistiques = demandeCongeRepository.countDemandesByTypeCongeAndAnnee(annee);
-
-        Map<String, Long> result = new HashMap<>();
-        for (Object[] stat : statistiques) {
-            String typeCongeNom = (String) stat[0];
-            Long count = (Long) stat[1];
-            result.put(typeCongeNom, count);
-        }
-
-        return result;
-    }
-
-    /**
      * Vérifier si un employé peut prendre des congés à une date donnée
      */
     public boolean peutPrendreCongeALaDate(Long employeId, LocalDate date) {
@@ -332,7 +283,7 @@ public class DemandeCongeService {
             // Copier les données de base
             demandeWithDetails.put("id", demande.getId());
             demandeWithDetails.put("employeId", demande.getEmployeId());
-            demandeWithDetails.put("typeCongeId", demande.getTypeCongeId());
+            demandeWithDetails.put("typeConge", demande.getTypeConge()); // Utiliser typeConge
             demandeWithDetails.put("dateDebut", demande.getDateDebut());
             demandeWithDetails.put("dateFin", demande.getDateFin());
             demandeWithDetails.put("motif", demande.getMotif());
@@ -351,18 +302,6 @@ public class DemandeCongeService {
                     employeMap.put("matricule", employe.get().getMatricule());
                     employeMap.put("photoProfil", employe.get().getPhotoProfil());
                     demandeWithDetails.put("employe", employeMap);
-                }
-            }
-
-            // Récupérer et ajouter les détails du type de congé
-            if (demande.getTypeCongeId() != null) {
-                Optional<TypeConge> typeConge = typeCongeRepository.findById(demande.getTypeCongeId());
-                if (typeConge.isPresent()) {
-                    Map<String, Object> typeCongeMap = new HashMap<>();
-                    typeCongeMap.put("id", typeConge.get().getId());
-                    typeCongeMap.put("nom", typeConge.get().getNom());
-                    typeCongeMap.put("joursAlloues", typeConge.get().getJoursAlloues());
-                    demandeWithDetails.put("typeConge", typeCongeMap);
                 }
             }
 
@@ -386,14 +325,6 @@ public class DemandeCongeService {
             details.put("employeNom", employe.getNom());
             details.put("employePrenom", employe.getPrenom());
             details.put("employeMatricule", employe.getMatricule());
-        }
-
-        // Détails du type de congé
-        Optional<TypeConge> typeCongeOpt = typeCongeRepository.findById(demande.getTypeCongeId());
-        if (typeCongeOpt.isPresent()) {
-            TypeConge typeConge = typeCongeOpt.get();
-            details.put("typeCongeNom", typeConge.getNom());
-            details.put("typeCongeCode", typeConge.getCode());
         }
 
         // Détails de l'approbateur (si existant)

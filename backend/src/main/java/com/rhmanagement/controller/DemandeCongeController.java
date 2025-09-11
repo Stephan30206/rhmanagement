@@ -97,7 +97,6 @@ public class DemandeCongeController {
                 Map<String, Object> demandeMap = new HashMap<>();
                 demandeMap.put("id", demande.getId());
                 demandeMap.put("employeId", demande.getEmployeId());
-                demandeMap.put("typeCongeId", demande.getTypeCongeId());
                 demandeMap.put("dateDebut", demande.getDateDebut());
                 demandeMap.put("dateFin", demande.getDateFin());
                 demandeMap.put("motif", demande.getMotif());
@@ -128,11 +127,9 @@ public class DemandeCongeController {
     public ResponseEntity<Map<String, Object>> getStatistiques(@PathVariable Integer annee) {
         try {
             Map<String, Long> statsStatut = demandeCongeService.getStatistiquesDemandesParAnnee(annee);
-            Map<String, Long> statsType = demandeCongeService.getStatistiquesParTypeConge(annee);
 
             Map<String, Object> response = new HashMap<>();
             response.put("parStatut", statsStatut);
-            response.put("parType", statsType);
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {

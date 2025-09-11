@@ -139,7 +139,7 @@ interface Employe {
 interface Conge {
     id: number;
     employeId: number;
-    typeCongeId: number;
+    typeConge: string;
     dateDebut: string;
     dateFin: string;
     joursDemandes: number;
@@ -149,16 +149,7 @@ interface Conge {
     dateTraitement?: string;
     motifRejet?: string;
     employe?: Employe;
-    typeConge?: TypeConge;
-}
 
-interface TypeConge {
-    id: number;
-    code: string;
-    nom: string;
-    joursAlloues: number;
-    reportable: boolean;
-    exigences?: string;
 }
 
 interface Document {

@@ -3,8 +3,6 @@ import {X, Save, AlertCircle, Trash2, Edit} from 'lucide-react';
 import {
     demandeCongeService,
     employeService,
-    typeCongeService,
-    type TypeConge,
     type Employe,
     type DemandeConge
 } from '../services/api';
@@ -18,7 +16,7 @@ interface DemandeCongeFormProps {
 
 interface FormData {
     employeId: string;
-    typeCongeId: string;
+    typeConge: string;
     dateDebut: string;
     dateFin: string;
     motif: string;
@@ -33,14 +31,13 @@ const DemandeCongeForm: React.FC<DemandeCongeFormProps> = ({
                                                            }) => {
     const [formData, setFormData] = useState<FormData>({
         employeId: '',
-        typeCongeId: '',
+        typeConge: '',
         dateDebut: '',
         dateFin: '',
         motif: '',
         statut: 'EN_ATTENTE'
     });
 
-    const [typesConge, setTypesConge] = useState<TypeConge[]>([]);
     const [employes, setEmployes] = useState<Employe[]>([]);
     const [loading, setLoading] = useState(false);
     const [loadingData, setLoadingData] = useState(true);
@@ -52,18 +49,17 @@ const DemandeCongeForm: React.FC<DemandeCongeFormProps> = ({
         const loadData = async () => {
             setLoadingData(true);
             try {
-                const [typesData, employesData] = await Promise.all([
-                    typeCongeService.getAllTypesConge(),
+                // @ts-ignore
+                const [employesData] = await Promise.all([
                     employeService.getAllEmployes()
                 ]);
 
-                setTypesConge(typesData || []);
                 setEmployes(employesData || []);
 
                 if (demande && mode !== 'create') {
                     setFormData({
                         employeId: demande.employeId?.toString() || '',
-                        typeCongeId: demande.typeCongeId?.toString() || '',
+                        typeConge: demande.typeConge?.toString() || '',
                         dateDebut: demande.dateDebut.split('T')[0] || '',
                         dateFin: demande.dateFin.split('T')[0] || '',
                         motif: demande.motif || '',
@@ -134,8 +130,8 @@ const DemandeCongeForm: React.FC<DemandeCongeFormProps> = ({
             errors.employeId = 'Veuillez sélectionner un employé';
         }
 
-        if (!formData.typeCongeId) {
-            errors.typeCongeId = 'Veuillez sélectionner un type de congé';
+        if (!formData.typeConge.trim()) {
+            errors.typeConge = 'Veuillez saisir un type de congé';
         }
 
         if (!formData.dateDebut) {
@@ -150,16 +146,6 @@ const DemandeCongeForm: React.FC<DemandeCongeFormProps> = ({
         const dateError = validateDates(formData.dateDebut, formData.dateFin);
         if (dateError) {
             errors.dates = dateError;
-        }
-
-        // Vérifier si le nombre de jours demandés ne dépasse pas le nombre alloué
-        if (formData.typeCongeId && formData.dateDebut && formData.dateFin) {
-            const typeConge = typesConge.find(t => t.id === parseInt(formData.typeCongeId));
-            const joursDemandes = calculateDays(formData.dateDebut, formData.dateFin);
-
-            if (typeConge && joursDemandes > typeConge.joursAlloues) {
-                errors.dates = `Le nombre de jours demandés (${joursDemandes}) dépasse le nombre alloué (${typeConge.joursAlloues})`;
-            }
         }
 
         setValidationErrors(errors);
@@ -181,7 +167,7 @@ const DemandeCongeForm: React.FC<DemandeCongeFormProps> = ({
         try {
             const requestData = {
                 employeId: parseInt(formData.employeId),
-                typeCongeId: parseInt(formData.typeCongeId),
+                typeConge: formData.typeConge,
                 dateDebut: new Date(formData.dateDebut).toISOString(),
                 dateFin: new Date(formData.dateFin).toISOString(),
                 motif: formData.motif,
@@ -253,7 +239,6 @@ const DemandeCongeForm: React.FC<DemandeCongeFormProps> = ({
     };
 
     const joursDemandes = calculateDays(formData.dateDebut, formData.dateFin);
-    const typeCongeSelectionne = typesConge.find(t => t.id === parseInt(formData.typeCongeId));
     const employeSelectionne = employes.find(e => e.id === parseInt(formData.employeId));
 
     if (loadingData) {
@@ -317,9 +302,10 @@ const DemandeCongeForm: React.FC<DemandeCongeFormProps> = ({
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700">Type de congé</label>
                                     <p className="mt-1 text-sm text-gray-900">
-                                        {demandeDetails?.typeCongeNom || typeCongeSelectionne?.nom}
+                                        {formData.typeConge}
                                     </p>
                                 </div>
+
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700">Statut</label>
                                     <p className="mt-1 text-sm text-gray-900 capitalize">
@@ -426,26 +412,22 @@ const DemandeCongeForm: React.FC<DemandeCongeFormProps> = ({
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
                                         Type de congé *
                                     </label>
-                                    <select
-                                        name="typeCongeId"
-                                        value={formData.typeCongeId}
+                                    <input
+                                        type="text"
+                                        name="typeConge"
+                                        value={formData.typeConge}
                                         onChange={handleChange}
                                         required
+                                        placeholder="Ex: Congé annuel, Congé maladie, Congé maternité..."
                                         className={`w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
-                                            validationErrors.typeCongeId ? 'border-red-500' : 'border-gray-300'
+                                            validationErrors.typeConge ? 'border-red-500' : 'border-gray-300'
                                         }`}
-                                    >
-                                        <option value="">Sélectionner un type</option>
-                                        {typesConge.map(type => (
-                                            <option key={type.id} value={type.id}>
-                                                {type.nom} ({type.joursAlloues} jours)
-                                            </option>
-                                        ))}
-                                    </select>
-                                    {validationErrors.typeCongeId && (
-                                        <p className="text-red-500 text-sm mt-1">{validationErrors.typeCongeId}</p>
+                                    />
+                                    {validationErrors.typeConge && (
+                                        <p className="text-red-500 text-sm mt-1">{validationErrors.typeConge}</p>
                                     )}
                                 </div>
+
 
                                 {/* Dates */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -494,20 +476,6 @@ const DemandeCongeForm: React.FC<DemandeCongeFormProps> = ({
                                 {validationErrors.dates && (
                                     <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
                                         {validationErrors.dates}
-                                    </div>
-                                )}
-
-                                {/* Informations sur la durée */}
-                                {joursDemandes > 0 && (
-                                    <div className="bg-blue-50 border border-blue-200 px-4 py-3 rounded">
-                                        <p className="text-sm text-blue-800">
-                                            <strong>Durée demandée :</strong> {joursDemandes} jour{joursDemandes > 1 ? 's' : ''}
-                                            {typeCongeSelectionne && (
-                                                <span className="ml-2">
-                                                    (sur {typeCongeSelectionne.joursAlloues} jour{typeCongeSelectionne.joursAlloues > 1 ? 's' : ''} alloué{typeCongeSelectionne.joursAlloues > 1 ? 's' : ''})
-                                                </span>
-                                            )}
-                                        </p>
                                     </div>
                                 )}
 

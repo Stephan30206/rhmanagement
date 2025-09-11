@@ -38,21 +38,9 @@ public interface DemandeCongeRepository extends JpaRepository<DemandeConge, Long
             @Param("excludeId") Long excludeId
     );
 
-    @Query("SELECT COALESCE(SUM(d.joursDemandes), 0) FROM DemandeConge d WHERE " +
-            "d.employeId = :employeId AND d.typeCongeId = :typeCongeId AND " +
-            "d.annee = :annee AND d.statut = 'APPROUVE'")
-    Integer countJoursUtilises(
-            @Param("employeId") Long employeId,
-            @Param("typeCongeId") Long typeCongeId,
-            @Param("annee") Integer annee
-    );
-
     @Query("SELECT d.statut, COUNT(d) FROM DemandeConge d WHERE d.annee = :annee GROUP BY d.statut")
     List<Object[]> countDemandesByStatutAndAnnee(@Param("annee") Integer annee);
 
-    @Query("SELECT tc.nom, COUNT(d) FROM DemandeConge d JOIN TypeConge tc ON d.typeCongeId = tc.id " +
-            "WHERE d.annee = :annee GROUP BY tc.nom")
-    List<Object[]> countDemandesByTypeCongeAndAnnee(@Param("annee") Integer annee);
 
     @Query("SELECT CASE WHEN COUNT(d) > 0 THEN true ELSE false END FROM DemandeConge d WHERE " +
             "d.employeId = :employeId AND d.statut = 'APPROUVE' AND " +

@@ -20,7 +20,6 @@ import {
     User,
     LogOut,
     Bell,
-    Settings,
     AlertTriangle,
     Save,
     Lock,
@@ -445,13 +444,6 @@ function App() {
                             <button className="p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100" title="Notifications">
                                 <Bell className="h-5 w-5"/>
                             </button>
-                            <button
-                                onClick={() => setCurrentPage('parametres')}
-                                className="p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100"
-                                title="Paramètres"
-                            >
-                                <Settings className="h-5 w-5"/>
-                            </button>
                         </div>
 
                         {/* Profil utilisateur */}
@@ -787,7 +779,6 @@ function App() {
         </ErrorBoundary>
     )
 
-    // Composant Conges corrigé dans App.tsx
     const Conges = () => {
         const [showDemandeForm, setShowDemandeForm] = useState(false);
         const [selectedDemande, setSelectedDemande] = useState<any>(null);

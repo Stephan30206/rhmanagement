@@ -70,7 +70,7 @@ export interface TypeConge {
 export interface DemandeConge {
     id: number;
     employeId: number;
-    typeCongeId: number;
+    typeConge: string;
     dateDebut: string;
     dateFin: string;
     joursDemandes?: number;
@@ -80,7 +80,6 @@ export interface DemandeConge {
     dateTraitement?: string;
     motifRejet?: string;
     employe?: Employe;
-    typeConge?: TypeConge;
 }
 
 // Interfaces pour les absences
@@ -457,7 +456,14 @@ export const demandeCongeService = {
         return response.data;
     },
 
-    createDemandeConge: async (data: Partial<DemandeConge>): Promise<DemandeConge> => {
+    createDemandeConge: async (data: {
+        employeId: number;
+        typeConge: string;
+        dateDebut: string;
+        dateFin: string;
+        motif: string;
+        statut: "EN_ATTENTE" | "APPROUVE" | "REJETE" | "ANNULE"
+    }): Promise<DemandeConge> => {
         const response = await api.post('/demandes-conge', data);
         return response.data;
     },
@@ -497,7 +503,7 @@ export const demandeCongeService = {
 
     updateDemandeConge: async (id: number, requestData: {
         employeId: number;
-        typeCongeId: number;
+        typeConge: string;
         dateDebut: string;
         dateFin: string;
         motif: string;
@@ -526,33 +532,6 @@ export const demandeCongeService = {
     getSoldeConge: async (employeId: number, typeCongeId: number): Promise<number> => {
         const response = await api.get(`/demandes-conge/solde/${employeId}/${typeCongeId}`);
         return response.data;
-    }
-};
-
-// Service pour les types de congé
-export const typeCongeService = {
-    getAllTypesConge: async (): Promise<TypeConge[]> => {
-        const response = await api.get('/types-conge');
-        return response.data;
-    },
-
-    getTypeCongeById: async (id: number): Promise<TypeConge> => {
-        const response = await api.get(`/types-conge/${id}`);
-        return response.data;
-    },
-
-    createTypeConge: async (typeConge: Omit<TypeConge, 'id'>): Promise<TypeConge> => {
-        const response = await api.post('/types-conge', typeConge);
-        return response.data;
-    },
-
-    updateTypeConge: async (id: number, typeConge: Partial<TypeConge>): Promise<TypeConge> => {
-        const response = await api.put(`/types-conge/${id}`, typeConge);
-        return response.data;
-    },
-
-    deleteTypeConge: async (id: number): Promise<void> => {
-        await api.delete(`/types-conge/${id}`);
     }
 };
 
