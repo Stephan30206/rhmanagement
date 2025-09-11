@@ -239,6 +239,8 @@ const DemandeCongeForm: React.FC<DemandeCongeFormProps> = ({
     };
 
     const joursDemandes = calculateDays(formData.dateDebut, formData.dateFin);
+    const totalConges = 25;
+    const resteConges = totalConges - joursDemandes;
     const employeSelectionne = employes.find(e => e.id === parseInt(formData.employeId));
 
     if (loadingData) {
@@ -335,6 +337,14 @@ const DemandeCongeForm: React.FC<DemandeCongeFormProps> = ({
                                     {joursDemandes} jour{joursDemandes > 1 ? 's' : ''}
                                 </p>
                             </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Reste</label>
+                                <p className="mt-1 text-sm text-gray-900">
+                                    {resteConges} jour{resteConges > 1 ? 's' : ''}
+                                </p>
+                            </div>
+
 
                             {formData.motif && (
                                 <div>
