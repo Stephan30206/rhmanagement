@@ -77,10 +77,10 @@ public class DemandeConge {
     }
 
     // Méthode utilitaire pour calculer le nombre de jours
-//    public long getNombreJours() {
-//        if (dateDebut != null && dateFin != null) {
-//            return ChronoUnit.DAYS.between(dateDebut, dateFin) + 1;
-//        }
-//        return 0;
-//    }
+    public long getNombreJours() {
+        if (dateDebut != null && dateFin != null) {
+            return ChronoUnit.DAYS.between(dateDebut, dateFin) + 1;
+        }
+        return 0;
+    }
 }

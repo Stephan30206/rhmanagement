@@ -1,10 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Calendar, MapPin, Users } from 'lucide-react';
 import type { Employe } from '../services/api';
-import type {AffectationPastorale} from '../services/api';
+import type { AffectationPastorale } from '../services/api';
 
 interface CarrierePastoraleProps {
     employe: Employe;
+}
+
+interface AffectationFormData {
+    district: string;
+    dateDebut: string;
+    dateFin: string;
+    fonction: string;
+    statut: string;
+    lettreAffectation: string;
+    observations: string;
 }
 
 const CarrierePastorale: React.FC<CarrierePastoraleProps> = ({ employe }) => {
@@ -12,14 +22,32 @@ const CarrierePastorale: React.FC<CarrierePastoraleProps> = ({ employe }) => {
     const [showForm, setShowForm] = useState(false);
     const [editingAffectation, setEditingAffectation] = useState<AffectationPastorale | null>(null);
     const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
 
     useEffect(() => {
         loadAffectations();
     }, [employe.id]);
 
+    // Fonction pour déterminer automatiquement le statut basé sur les dates
+    const determineStatut = (dateDebut: string, dateFin: string | null): string => {
+        const aujourdhui = new Date();
+        const dateFinObj = dateFin ? new Date(dateFin) : null;
+
+        if (dateFinObj && dateFinObj < aujourdhui) {
+            return 'TERMINEE';
+        }
+        return 'ACTIVE';
+    };
+
     const loadAffectations = async () => {
         try {
+            setLoading(true);
             const response = await fetch(`http://localhost:8080/api/affectations-pastorales/pasteur/${employe.id}`);
+
+            if (!response.ok) {
+                throw new Error(`Erreur HTTP: ${response.status}`);
+            }
+
             const data = await response.json();
             setAffectations(Array.isArray(data) ? data : []);
         } catch (error) {
@@ -43,18 +71,44 @@ const CarrierePastorale: React.FC<CarrierePastoraleProps> = ({ employe }) => {
     const handleDelete = async (id: number) => {
         if (window.confirm('Êtes-vous sûr de vouloir supprimer cette affectation ?')) {
             try {
-                await fetch(`http://localhost:8080/api/affectations-pastorales/${id}`, {
+                const response = await fetch(`http://localhost:8080/api/affectations-pastorales/${id}`, {
                     method: 'DELETE'
                 });
-                loadAffectations();
-            } catch (error) {
+
+                if (response.ok) {
+                    loadAffectations();
+                } else {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Erreur lors de la suppression');
+                }
+            } catch (error: any) {
                 console.error('Erreur lors de la suppression:', error);
+                alert(error.message || 'Erreur lors de la suppression de l\'affectation');
             }
         }
     };
 
-    const handleSave = async (affectationData: any) => {
+    const handleSave = async (affectationData: AffectationFormData) => {
         try {
+            setSaving(true);
+
+            // Déterminer automatiquement le statut basé sur la date de fin
+            const statutAuto = determineStatut(affectationData.dateDebut, affectationData.dateFin || null);
+
+            // Préparer les données pour l'API
+            const requestData = {
+                district: affectationData.district,
+                dateDebut: affectationData.dateDebut,
+                dateFin: affectationData.dateFin || null,
+                fonction: affectationData.fonction,
+                statut: statutAuto, // Utiliser le statut déterminé automatiquement
+                lettreAffectation: affectationData.lettreAffectation || null,
+                observations: affectationData.observations || null,
+                pasteur: { id: employe.id }
+            };
+
+            console.log('Données envoyées au backend:', requestData);
+
             const url = editingAffectation
                 ? `http://localhost:8080/api/affectations-pastorales/${editingAffectation.id}`
                 : 'http://localhost:8080/api/affectations-pastorales';
@@ -66,33 +120,63 @@ const CarrierePastorale: React.FC<CarrierePastoraleProps> = ({ employe }) => {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    ...affectationData,
-                    pasteur: { id: employe.id }
-                })
+                body: JSON.stringify(requestData)
             });
 
-            if (response.ok) {
-                setShowForm(false);
-                setEditingAffectation(null);
-                loadAffectations();
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || `Erreur HTTP: ${response.status}`);
             }
-        } catch (error) {
-            console.error('Erreur lors de la sauvegarde:', error);
+
+            const savedAffectation = await response.json();
+            console.log('Affectation sauvegardée:', savedAffectation);
+
+            setShowForm(false);
+            setEditingAffectation(null);
+            loadAffectations();
+
+        } catch (error: any) {
+            console.error('Erreur détaillée lors de la sauvegarde:', error);
+            alert(error.message || 'Erreur lors de la sauvegarde de l\'affectation');
+        } finally {
+            setSaving(false);
         }
     };
 
+    // Fonction pour formater la période avec indication si terminée
+    const formatPeriode = (dateDebut: string, dateFin: string | null) => {
+        const aujourdhui = new Date();
+        const dateFinObj = dateFin ? new Date(dateFin) : null;
+        const estTerminee = dateFinObj && dateFinObj < aujourdhui;
+
+        return {
+            texte: `${new Date(dateDebut).toLocaleDateString('fr-FR')}${
+                dateFin ? ` au ${new Date(dateFin).toLocaleDateString('fr-FR')}` : ''
+            }`,
+            estTerminee
+        };
+    };
+
     if (loading) {
-        return <div>Chargement...</div>;
+        return (
+            <div className="flex justify-center items-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+            </div>
+        );
     }
 
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
-                <h3 className="text-lg font-semibold">Carrière Pastorale</h3>
+                <div>
+                    <h3 className="text-2xl font-bold text-gray-900">Carrière Pastorale</h3>
+                    <p className="text-sm text-gray-600 mt-1">
+                        {employe.prenom} {employe.nom} - {employe.poste?.replace('_', ' ')}
+                    </p>
+                </div>
                 <button
                     onClick={handleCreate}
-                    className="inline-flex items-center px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
                 >
                     <Plus className="h-4 w-4 mr-2" />
                     Nouvelle affectation
@@ -100,65 +184,99 @@ const CarrierePastorale: React.FC<CarrierePastoraleProps> = ({ employe }) => {
             </div>
 
             {affectations.length === 0 ? (
-                <div className="text-center py-8 bg-gray-50 rounded-lg">
-                    <Users className="mx-auto h-12 w-12 text-gray-400" />
-                    <p className="mt-2 text-gray-600">Aucune affectation pastorale enregistrée</p>
+                <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                    <Users className="mx-auto h-16 w-16 text-gray-400 mb-4" />
+                    <h4 className="text-lg font-medium text-gray-900 mb-2">Aucune affectation pastorale</h4>
+                    <p className="text-gray-600 mb-4">Commencez par ajouter une nouvelle affectation pour ce pasteur.</p>
                 </div>
             ) : (
                 <div className="grid gap-4">
-                    {affectations.map((affectation) => (
-                        <div key={affectation.id} className="bg-white p-4 rounded-lg shadow border">
-                            <div className="flex justify-between items-start">
-                                <div className="flex-1">
-                                    <h4 className="font-semibold text-lg">{affectation.district}</h4>
-                                    <p className="text-gray-600">{affectation.egliseLocale}</p>
-                                    <div className="flex items-center mt-2 text-sm text-gray-500">
-                                        <Calendar className="h-4 w-4 mr-1" />
-                                        {new Date(affectation.dateDebut).toLocaleDateString('fr-FR')}
-                                        {affectation.dateFin && (
-                                            <> - {new Date(affectation.dateFin).toLocaleDateString('fr-FR')}</>
+                    {affectations.map((affectation) => {
+                        const periode = formatPeriode(affectation.dateDebut, affectation.dateFin);
+
+                        return (
+                            <div key={affectation.id} className="bg-white p-6 rounded-lg shadow border border-gray-200 hover:shadow-md transition-shadow">
+                                <div className="flex justify-between items-start mb-4">
+                                    <div className="flex-1">
+                                        <h4 className="font-semibold text-lg text-gray-900">{affectation.district}</h4>
+                                        <div className="flex items-center mt-3 text-sm text-gray-600">
+                                            <MapPin className="h-4 w-4 mr-2" />
+                                            <span className="font-medium">Fonction: </span>
+                                            <span className="ml-1 capitalize">
+                                                {affectation.fonction?.toLowerCase().replace('_', ' ')}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center mt-2 text-sm text-gray-600">
+                                            <Calendar className="h-4 w-4 mr-2" />
+                                            <span className="font-medium">Période: </span>
+                                            <span className="ml-1">
+                                                {periode.texte}
+                                                {periode.estTerminee && (
+                                                    <span className="ml-2 text-xs text-red-600 font-medium">
+                                                        (Terminée)
+                                                    </span>
+                                                )}
+                                            </span>
+                                        </div>
+                                        {affectation.lettreAffectation && (
+                                            <div className="mt-2 text-sm text-gray-600">
+                                                <span className="font-medium">Lettre d'affectation: </span>
+                                                {affectation.lettreAffectation}
+                                            </div>
                                         )}
                                     </div>
-                                    <div className="flex items-center mt-1 text-sm text-gray-500">
-                                        <MapPin className="h-4 w-4 mr-1" />
-                                        {affectation.fonction}
+                                    <div className="flex space-x-2">
+                                        <button
+                                            onClick={() => handleEdit(affectation)}
+                                            className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors"
+                                            title="Modifier"
+                                        >
+                                            <Edit className="h-4 w-4" />
+                                        </button>
+                                        <button
+                                            onClick={() => handleDelete(affectation.id)}
+                                            className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors"
+                                            title="Supprimer"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </button>
                                     </div>
-                                    <span className={`inline-block mt-2 px-2 py-1 text-xs rounded-full ${
+                                </div>
+
+                                <div className="flex items-center justify-between border-t pt-3">
+                                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
                                         affectation.statut === 'ACTIVE' ? 'bg-green-100 text-green-800' :
                                             affectation.statut === 'TERMINEE' ? 'bg-gray-100 text-gray-800' :
                                                 'bg-yellow-100 text-yellow-800'
                                     }`}>
-                    {affectation.statut}
-                  </span>
-                                </div>
-                                <div className="flex space-x-2">
-                                    <button
-                                        onClick={() => handleEdit(affectation)}
-                                        className="p-1 text-blue-600 hover:text-blue-800"
-                                    >
-                                        <Edit className="h-4 w-4" />
-                                    </button>
-                                    <button
-                                        onClick={() => handleDelete(affectation.id)}
-                                        className="p-1 text-red-600 hover:text-red-800"
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                    </button>
+                                        {affectation.statut === 'ACTIVE' ? 'En cours' :
+                                            affectation.statut === 'TERMINEE' ? 'Terminée' : 'Provisoire'}
+                                    </span>
+
+                                    {affectation.observations && (
+                                        <div className="text-xs text-gray-500">
+                                            <span className="font-medium">Observations: </span>
+                                            {affectation.observations}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             )}
 
             {showForm && (
                 <AffectationForm
                     affectation={editingAffectation}
+                    employe={employe}
                     onClose={() => {
                         setShowForm(false);
                         setEditingAffectation(null);
                     }}
                     onSave={handleSave}
+                    loading={saving}
+                    determineStatut={determineStatut}
                 />
             )}
         </div>
@@ -168,113 +286,216 @@ const CarrierePastorale: React.FC<CarrierePastoraleProps> = ({ employe }) => {
 // Composant pour le formulaire d'affectation
 const AffectationForm: React.FC<{
     affectation: AffectationPastorale | null;
+    employe: Employe;
     onClose: () => void;
     onSave: (data: any) => void;
-}> = ({ affectation, onClose, onSave }) => {
+    loading: boolean;
+    determineStatut: (dateDebut: string, dateFin: string | null) => string;
+}> = ({ affectation, employe, onClose, onSave, loading, determineStatut }) => {
     const [formData, setFormData] = useState({
-        egliseLocale: affectation?.egliseLocale || '',
         district: affectation?.district || '',
-        dateDebut: affectation?.dateDebut || '',
-        dateFin: affectation?.dateFin || '',
-        fonction: affectation?.fonction || '',
+        dateDebut: affectation?.dateDebut ? affectation.dateDebut.split('T')[0] : '',
+        dateFin: affectation?.dateFin ? affectation.dateFin.split('T')[0] : '',
+        fonction: affectation?.fonction || employe.poste || '',
         statut: affectation?.statut || 'ACTIVE',
         lettreAffectation: affectation?.lettreAffectation || '',
         observations: affectation?.observations || ''
     });
 
+    const [statutAuto, setStatutAuto] = useState('ACTIVE');
+
+    // Mettre à jour le statut automatique quand les dates changent
+    useEffect(() => {
+        const nouveauStatut = determineStatut(formData.dateDebut, formData.dateFin || null);
+        setStatutAuto(nouveauStatut);
+    }, [formData.dateDebut, formData.dateFin, determineStatut]);
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        onSave(formData);
+
+        // Validation des champs requis
+        if (!formData.district.trim()) {
+            alert('Le district est obligatoire');
+            return;
+        }
+        if (!formData.dateDebut) {
+            alert('La date de début est obligatoire');
+            return;
+        }
+        if (!formData.fonction) {
+            alert('La fonction est obligatoire');
+            return;
+        }
+
+        // Utiliser le statut déterminé automatiquement
+        const dataAEnvoyer = {
+            ...formData,
+            statut: statutAuto
+        };
+
+        onSave(dataAEnvoyer);
     };
 
-    // @ts-ignore
-    // @ts-ignore
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            [name]: value
+        }));
+    };
+
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-lg w-full max-w-md">
-                <h3 className="text-lg font-semibold mb-4">
-                    {affectation ? 'Modifier l\'affectation' : 'Nouvelle affectation'}
-                </h3>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white p-6 rounded-lg w-full max-w-md max-h-[90vh] overflow-y-auto">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900">
+                        {affectation ? 'Modifier l\'affectation' : 'Nouvelle affectation'}
+                    </h3>
+                    <button
+                        onClick={onClose}
+                        className="text-gray-400 hover:text-gray-600"
+                        disabled={loading}
+                    >
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">District</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            District *
+                        </label>
                         <input
                             type="text"
+                            name="district"
                             required
                             value={formData.district}
-                            onChange={(e) => setFormData({...formData, district: e.target.value})}
-                            className="w-full border border-gray-300 rounded-md px-3 py-2 mt-1"
+                            onChange={handleInputChange}
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            placeholder="Nom du district"
+                            disabled={loading}
                         />
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Église locale</label>
-                        <input
-                            type="text"
-                            required
-                            value={formData.egliseLocale}
-                            onChange={(e) => setFormData({...formData, egliseLocale: e.target.value})}
-                            className="w-full border border-gray-300 rounded-md px-3 py-2 mt-1"
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Fonction</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Fonction *
+                        </label>
                         <select
+                            name="fonction"
                             required
                             value={formData.fonction}
-                            onChange={(e) => setFormData({...formData, fonction: e.target.value})}
-                            className="w-full border border-gray-300 rounded-md px-3 py-2 mt-1"
+                            onChange={handleInputChange}
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            disabled={loading}
                         >
                             <option value="">Sélectionner une fonction</option>
-                            <option value="PASTEUR_TITULAIRE">Pasteur Titulaire</option>
-                            <option value="PASTEUR_ASSOCIE">Pasteur Associé</option>
-                            <option value="PASTEUR_STAGIAIRE">Pasteur Stagiaire</option>
-                            <option value="PIONNIER">Pionnier</option>
                             <option value="EVANGELISTE">Évangéliste</option>
-                            <option value="ANCIEN">Ancien</option>
-                            <option value="RESPONSABLE_DISTRICT">Responsable de District</option>
+                            <option value="PASTEUR_STAGIAIRE">Pasteur stagiaire</option>
+                            <option value="PASTEUR_AUTORISE">Pasteur autorisé</option>
+                            <option value="PASTEUR_CONSACRE">Pasteur consacré</option>
                         </select>
+                        <p className="text-xs text-gray-500 mt-1">
+                            Poste actuel: <span className="font-medium">{employe.poste?.replace('_', ' ') || 'Non défini'}</span>
+                        </p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700">Date début</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Date début *
+                            </label>
                             <input
                                 type="date"
+                                name="dateDebut"
                                 required
                                 value={formData.dateDebut}
-                                onChange={(e) => setFormData({...formData, dateDebut: e.target.value})}
-                                className="w-full border border-gray-300 rounded-md px-3 py-2 mt-1"
+                                onChange={handleInputChange}
+                                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                disabled={loading}
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700">Date fin</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Date fin
+                            </label>
                             <input
                                 type="date"
+                                name="dateFin"
                                 value={formData.dateFin}
-                                onChange={(e) => setFormData({...formData, dateFin: e.target.value})}
-                                className="w-full border border-gray-300 rounded-md px-3 py-2 mt-1"
+                                onChange={handleInputChange}
+                                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                placeholder="Optionnel"
+                                disabled={loading}
                             />
                         </div>
                     </div>
 
+                    <div className="bg-blue-50 p-3 rounded-md">
+                        <p className="text-sm text-blue-800">
+                            <strong>Statut automatique:</strong> {statutAuto === 'TERMINEE' ? 'Terminée' : 'Active'}
+                            {statutAuto === 'TERMINEE' && (
+                                <span className="ml-2 text-xs text-blue-600">
+                                    (La date de fin est passée)
+                                </span>
+                            )}
+                        </p>
+                    </div>
 
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Lettre d'affectation
+                        </label>
+                        <input
+                            type="text"
+                            name="lettreAffectation"
+                            value={formData.lettreAffectation}
+                            onChange={handleInputChange}
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            placeholder="Référence de la lettre d'affectation"
+                            disabled={loading}
+                        />
+                    </div>
 
-                    <div className="flex justify-end space-x-3">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Observations
+                        </label>
+                        <textarea
+                            name="observations"
+                            value={formData.observations}
+                            onChange={handleInputChange}
+                            rows={3}
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            placeholder="Notes et observations"
+                            disabled={loading}
+                        />
+                    </div>
+
+                    <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
                         <button
                             type="button"
                             onClick={onClose}
-                            className="px-4 py-2 text-gray-600 bg-gray-200 rounded-md hover:bg-gray-300"
+                            className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors"
+                            disabled={loading}
                         >
                             Annuler
                         </button>
                         <button
                             type="submit"
-                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
+                            disabled={loading}
                         >
-                            Enregistrer
+                            {loading ? (
+                                <div className="flex items-center">
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                    Enregistrement...
+                                </div>
+                            ) : (
+                                `${affectation ? 'Modifier' : 'Créer'} l'affectation`
+                            )}
                         </button>
                     </div>
                 </form>

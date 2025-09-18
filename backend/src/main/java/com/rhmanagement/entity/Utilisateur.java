@@ -77,6 +77,6 @@ public class Utilisateur {
     private String statut;
 
     public enum Role {
-        ADMIN, SECRETAIRE_FEDERAL, RESPONSABLE_DISTRICT, PASTEUR, ASSISTANT_RH
+        ADMIN,  ASSISTANT_RH
     }
 }

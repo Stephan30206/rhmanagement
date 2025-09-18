@@ -124,7 +124,7 @@ public class Employe {
 
     @Enumerated(EnumType.STRING)
     @Column(length = 50)
-    private NiveauAccreditation niveauAccreditation = NiveauAccreditation.LOCAL;
+    private NiveauAccreditation niveauAccreditation = NiveauAccreditation.DISTRICT;
 
     @Column(length = 100)
     private String groupeAccreditation;
@@ -177,12 +177,11 @@ public class Employe {
     }
 
     public enum Poste {
-        PASTEUR_TITULAIRE, PASTEUR_ASSOCIE, EVANGELISTE, ANCIEN, MISSIONNAIRE,
-        ENSEIGNANT, SECRETAIRE_EXECUTIF, TRESORIER, ASSISTANT_RH, PASTEUR_TITURLAIRE, AUTRE
+        EVANGELISTE, PASTEUR_STAGIAIRE, PASTEUR_AUTORISE, PASTEUR_CONSACRE, SECRETAIRE_EXECUTIF, TRESORIER, ASSISTANT_RH, VERIFICATEUR,AUTRE
     }
 
     public enum TypeContrat {
-        CDI, CDD, STAGE, BENEVOLAT
+        CDD,CDI, BENEVOLAT
     }
 
     public enum StatutEmploye {
@@ -190,7 +189,7 @@ public class Employe {
     }
 
     public enum NiveauAccreditation {
-        LOCAL, DISTRICT, FEDERATION, UNION, DIVISION, CONFERENCE_GENERALE
+        DISTRICT, FEDERATION
     }
 
     @PreUpdate

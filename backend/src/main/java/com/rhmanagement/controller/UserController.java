@@ -20,6 +20,7 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/utilisateurs")
+@CrossOrigin(origins = "*") // Ajoutez cette annotation pour permettre les requêtes CORS
 public class UserController {
 
     @Autowired
@@ -139,8 +140,14 @@ public class UserController {
             Path filePath = Paths.get("uploads", utilisateur.getPhotoProfil());
             byte[] imageBytes = Files.readAllBytes(filePath);
 
+            // Déterminer le type MIME correct
+            String contentType = Files.probeContentType(filePath);
+            if (contentType == null) {
+                contentType = "image/jpeg"; // Valeur par défaut
+            }
+
             return ResponseEntity.ok()
-                    .header("Content-Type", "image/jpeg")
+                    .header("Content-Type", contentType)
                     .body(imageBytes);
 
         } catch (IOException e) {

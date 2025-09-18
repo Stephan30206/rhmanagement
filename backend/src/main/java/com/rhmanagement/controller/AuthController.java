@@ -47,6 +47,8 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody Utilisateur utilisateurRequest) {
         try {
+            System.out.println("Données reçues pour inscription: " + utilisateurRequest.toString());
+
             // Vérifier si l'email existe déjà
             if (utilisateurRepository.findByEmail(utilisateurRequest.getEmail()).isPresent()) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Email déjà utilisé"));
@@ -68,8 +70,14 @@ public class AuthController {
             utilisateur.setNom(utilisateurRequest.getNom());
             utilisateur.setPrenom(utilisateurRequest.getPrenom());
             utilisateur.setTelephone(utilisateurRequest.getTelephone());
+            utilisateur.setPoste(utilisateurRequest.getPoste());
             utilisateur.setDateInscription(LocalDateTime.now());
             utilisateur.setStatut("ACTIF");
+
+            // NOUVEAUX CHAMPS - Ajoutez ces lignes
+            utilisateur.setAdresse(utilisateurRequest.getAdresse());
+            utilisateur.setDateNaissance(utilisateurRequest.getDateNaissance());
+            utilisateur.setGenre(utilisateurRequest.getGenre());
 
             // Définir le rôle (avec valeur par défaut si null)
             if (utilisateurRequest.getRole() != null) {
@@ -81,6 +89,7 @@ public class AuthController {
             // Sauvegarder en base
             Utilisateur savedUser = utilisateurRepository.save(utilisateur);
 
+            System.out.println("Utilisateur créé avec succès: " + savedUser.getId());
             return ResponseEntity.ok(savedUser);
 
         } catch (Exception e) {

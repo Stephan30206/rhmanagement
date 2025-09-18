@@ -89,8 +89,8 @@ public class EmployeService {
         employeRepository.deleteById(id);
     }
 
-    public List<Employe> searchEmployes(String search) {
-        return employeRepository.searchEmployes(search);
+    public List<Employe> searchEmployes(String query) {
+        return employeRepository.searchEmployes(query);
     }
 
     public List<Employe> getEmployesByStatut(Employe.StatutEmploye statut) {

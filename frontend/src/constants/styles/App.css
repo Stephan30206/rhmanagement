@@ -23,7 +23,78 @@
 .App-link {
   color: #61dafb;
 }
+/* Styles personnalisés pour le composant Profil */
+.btn {
+  @apply inline-flex items-center px-4 py-2 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2;
+}
 
+.btn-primary {
+  @apply bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500;
+}
+
+.btn-secondary {
+  @apply bg-gray-200 text-gray-700 hover:bg-gray-300 focus:ring-gray-500;
+}
+
+.btn-purple {
+  @apply bg-purple-600 text-white hover:bg-purple-700 focus:ring-purple-500;
+}
+
+.btn-error {
+  @apply bg-red-600 text-white hover:bg-red-700 focus:ring-red-500;
+}
+
+.badge {
+  @apply px-3 py-1 text-xs rounded-full font-medium;
+}
+
+.badge-primary {
+  @apply bg-blue-100 text-blue-800;
+}
+
+.badge-success {
+  @apply bg-green-100 text-green-800;
+}
+
+.badge-error {
+  @apply bg-red-100 text-red-800;
+}
+
+.badge-blue {
+  @apply bg-blue-100 text-blue-800;
+}
+
+.badge-green {
+  @apply bg-green-100 text-green-800;
+}
+
+.badge-purple {
+  @apply bg-purple-100 text-purple-800;
+}
+
+.badge-gray {
+  @apply bg-gray-100 text-gray-800;
+}
+
+.input-field {
+  @apply w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent;
+}
+
+.display-field {
+  @apply text-gray-900 bg-gray-50 p-2 rounded border-l-4 border-gray-300;
+}
+
+.info-card {
+  @apply p-4 rounded-lg border;
+}
+
+.security-card {
+  @apply p-6 rounded-lg border;
+}
+
+.security-card-title {
+  @layer text-md font-medium mb-4 flex items-center;
+}
 @keyframes App-logo-spin {
   from {
     transform: rotate(0deg);
@@ -348,5 +419,119 @@
     top: 0;
     font-weight: 600;
     color: #1f2937;
+  }
+}
+
+/* Dans votre CSS global */
+.table-container {
+  overflow-x: auto;
+  width: 100%;
+}
+
+.employe-table {
+  min-width: 1024px;
+  width: 100%;
+}
+
+.employe-table th,
+.employe-table td {
+  padding: 0.75rem;
+  vertical-align: top;
+}
+
+.employe-name {
+  min-width: 180px;
+  max-width: 250px;
+  word-wrap: break-word;
+}
+
+.employe-poste {
+  min-width: 150px;
+  max-width: 200px;
+  word-wrap: break-word;
+}
+
+.employe-contact {
+  min-width: 140px;
+}
+
+@media (max-width: 1280px) {
+  .employe-table {
+    min-width: 900px;
+  }
+
+  .employe-name {
+    min-width: 160px;
+  }
+}
+
+/* Pour un défilement fluide */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Pour la table responsive */
+.overflow-x-auto {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Dans votre fichier CSS global */
+@media (max-width: 768px) {
+  .employe-table {
+    font-size: 0.85rem;
+  }
+
+  .employe-table th,
+  .employe-table td {
+    padding: 0.5rem 0.75rem;
+  }
+
+  .employe-table .btn-action {
+    padding: 0.25rem;
+  }
+
+  .employe-table .btn-action svg {
+    width: 1rem;
+    height: 1rem;
+  }
+}
+
+/* Pour les très petits écrans */
+@media (max-width: 640px) {
+  .employe-table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .employe-table {
+    font-size: 0.8rem;
+  }
+
+  .employe-table th,
+  .employe-table td {
+    padding: 0.4rem 0.6rem;
+  }
+}
+
+/* Pour les écrans extra petits */
+@media (max-width: 480px) {
+  .employe-table {
+    font-size: 0.75rem;
+  }
+
+  .employe-table th,
+  .employe-table td {
+    padding: 0.35rem 0.5rem;
+  }
+
+  .employe-table .btn-action {
+    padding: 0.2rem;
+  }
+
+  .employe-table .btn-action svg {
+    width: 0.9rem;
+    height: 0.9rem;
   }
 }

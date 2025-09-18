@@ -89,10 +89,10 @@ public class EmployeController {
             return ResponseEntity.notFound().build();
         }
     }
-
     @GetMapping("/search")
-    public List<Employe> searchEmployes(@RequestParam String query) {
-        return employeService.searchEmployes(query);
+    public ResponseEntity<List<Employe>> searchEmployes(@RequestParam String query) {
+        List<Employe> result = employeService.searchEmployes(query);
+        return ResponseEntity.ok(result);
     }
 
     @GetMapping("/statut/{statut}")

@@ -122,15 +122,15 @@ interface Employe {
     email?: string;
     statutMatrimonial?: 'CELIBATAIRE' | 'MARIE' | 'DIVORCE' | 'VEUF';
     dateMariage?: string;
-    poste: 'PASTEUR_TITULAIRE' | 'PASTEUR_ASSOCIE' | 'EVANGELISTE' | 'ANCIEN' | 'MISSIONNAIRE' | 'ENSEIGNANT' | 'SECRETAIRE_EXECUTIF' | 'TRESORIER' | 'ASSISTANT_RH' | 'AUTRE';
-    typeContrat?: 'CDI' | 'CDD' | 'STAGE' | 'BENEVOLAT';
+    poste: 'EVANGELISTE' | 'PASTEUR_STAGIAIRE' | 'PASTEUR_AUTORISE' | 'PASTEUR_CONSACRE' |  'SECRETAIRE_EXECUTIF' | 'TRESORIER' | 'ASSISTANT_RH' | 'VERIFICATEUR' | 'AUTRE';
+    typeContrat?: 'CDD' | 'CDI' | 'BENEVOLAT';
     dateDebut?: string;
     dateFin?: string;
     salaireBase?: number;
     pourcentageSalaire?: number;
     statut: 'ACTIF' | 'INACTIF' | 'EN_CONGE';
     dateAccreditation?: string;
-    niveauAccreditation?: 'LOCAL' | 'DISTRICT' | 'FEDERATION' | 'UNION' | 'DIVISION' | 'CONFERENCE_GENERALE';
+    niveauAccreditation?: 'DISTRICT' | 'FEDERATION';
     groupeAccreditation?: string;
     superviseurHierarchique?: string;
     affectationActuelle?: string;
@@ -194,7 +194,7 @@ interface AffectationPastorale {
     district: string;
     dateDebut: string;
     dateFin?: string;
-    fonction: 'PASTEUR_TITULAIRE' | 'PASTEUR_ASSOCIE' | 'EVANGELISTE' | 'ANCIEN' | 'AUTRE';
+    fonction: 'EVANGELISTE' | 'PASTEUR_STAGIAIRE' | 'PASTEUR_AUTORISE' | 'PASTEUR_CONSACRE' | 'AUTRE';
     statut: 'ACTIVE' | 'TERMINEE' | 'PROVISOIRE';
     pasteur?: Employe;
     lettreAffectation?: LettrePastorale;
@@ -216,7 +216,7 @@ interface Utilisateur {
     id: number;
     nomUtilisateur: string;
     email?: string;
-    role: 'ADMIN' | 'SECRETAIRE_FEDERAL' | 'RESPONSABLE_DISTRICT' | 'PASTEUR' | 'ASSISTANT_RH';
+    role: 'ADMIN' | 'ASSISTANT_RH';
     employeId?: number;
     actif: boolean;
     dateCreation: string;

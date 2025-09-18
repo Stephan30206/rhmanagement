@@ -7,7 +7,7 @@ interface Competence {
     nom: string;
     niveau: 'DEBUTANT' | 'INTERMEDIAIRE' | 'AVANCE' | 'EXPERT';
     categorie: string;
-    dateAcquisition: string;
+    dateAcquisition?: string;
 }
 
 interface Formation {
@@ -15,9 +15,9 @@ interface Formation {
     intitule: string;
     organisme: string;
     dateDebut: string;
-    dateFin: string;
-    dureeHeures: number;
-    certificat: string;
+    dateFin?: string;
+    dureeHeures?: number;
+    certificat?: string;
 }
 
 const Talents: React.FC = () => {
@@ -358,12 +358,13 @@ const Talents: React.FC = () => {
                                                 </div>
                                                 <p className="text-sm text-gray-600 mb-2">{formation.organisme}</p>
                                                 <div className="flex items-center justify-between text-sm text-gray-500">
-                          <span>
-                            {new Date(formation.dateDebut).toLocaleDateString('fr-FR')} -{' '}
-                              {new Date(formation.dateFin).toLocaleDateString('fr-FR')}
-                          </span>
-                                                    <span>{formation.dureeHeures} heures</span>
+                                                      <span>
+                                                        {formation.dateDebut ? new Date(formation.dateDebut).toLocaleDateString('fr-FR') : 'N/A'} -{' '}
+                                                          {formation.dateFin ? new Date(formation.dateFin).toLocaleDateString('fr-FR') : 'En cours'}
+                                                      </span>
+                                                    <span>{formation.dureeHeures ?? 0} heures</span>
                                                 </div>
+
                                                 {formation.certificat && (
                                                     <p className="text-xs text-blue-600 mt-2">Certificat: {formation.certificat}</p>
                                                 )}

@@ -169,14 +169,17 @@ export interface Document {
 }
 
 export interface RegisterData {
-    nom_utilisateur: string;
-    mot_de_passe: string;
+    nomUtilisateur: string;
+    motDePasse: string;
     email: string;
     nom: string;
     prenom: string;
     telephone: string;
     poste: string;
     role?: string;
+    adresse?: string;
+    dateNaissance?: string;
+    genre?: string;
 }
 
 const api = axios.create({
@@ -203,9 +206,7 @@ export const employeService = {
         formData.append('file', file);
 
         const response = await api.post(`/employes/${id}/photo`, formData, {
-            headers: {
-                'Content-Type': 'multipart/form-data',
-            },
+            headers: { 'Content-Type': 'multipart/form-data' },
         });
         return response.data;
     },
@@ -239,10 +240,7 @@ export const employeService = {
         await api.delete(`/employes/${id}`);
     },
 
-    searchEmployes: async (searchTerm: string): Promise<Employe[]> => {
-        const response = await api.get(`/employes/search?term=${encodeURIComponent(searchTerm)}`);
-        return response.data;
-    },
+    searchEmployes: (term: string) => api.get(`/employes/search?query=${encodeURIComponent(term)}`),
 
     getEnfants: async (employeId: number): Promise<Enfant[]> => {
         const response = await api.get(`/employes/${employeId}/enfants`);
@@ -292,9 +290,7 @@ export const employeService = {
     },
 
     exportEtatService: async (employeId: number): Promise<any> => {
-        const response = await api.get(`/employes/${employeId}/etat-service/export`, {
-            responseType: 'blob'
-        });
+        const response = await api.get(`/employes/${employeId}/etat-service/export`, { responseType: 'blob' });
         return response;
     },
 
@@ -336,20 +332,30 @@ export const employeService = {
         await api.delete(`/employes/${employeId}/formations/${formationId}`);
     },
 
-    uploadDocument: async (employeId: number, file: File, documentData: any): Promise<Document> => {
+    uploadDocument: async (employeId: number, file: File, documentData: any) => {
         const formData = new FormData();
         formData.append('file', file);
         formData.append('nom', documentData.nom);
         formData.append('typeDocument', documentData.typeDocument);
-
         if (documentData.description) {
             formData.append('description', documentData.description);
         }
-
         const response = await api.post(`/employes/${employeId}/documents`, formData, {
-            headers: {
-                'Content-Type': 'multipart/form-data',
-            },
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        return response.data;
+    },
+
+    updateDocument: async (employeId: number, documentId: number, file: File | null, documentData: any) => {
+        const formData = new FormData();
+        if (file) formData.append('file', file);
+        formData.append('nom', documentData.nom);
+        formData.append('typeDocument', documentData.typeDocument);
+        if (documentData.description) formData.append('description', documentData.description);
+
+        // ✅ Correction : utiliser PUT au lieu de POST
+        const response = await api.put(`/employes/${employeId}/documents/${documentId}`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
         });
         return response.data;
     },
@@ -607,6 +613,14 @@ export const absenceService = {
     }
 };
 
+//Service pour les affectations pastorales
+export const AffectationService = {
+   getAllAffectations:  async (): Promise<AffectationPastorale[]> => {
+        const response = await api.get('/affectations-pastorales');
+        return response.data
+   }
+};
+
 // Service pour les types d'absence
 export const typeAbsenceService = {
     getAllTypesAbsence: async (): Promise<TypeAbsence[]> => {
@@ -672,11 +686,11 @@ export const typeAbsenceService = {
 };
 // Service pour les utilisateurs
 export const userService = {
-    uploadPhoto: async (userId: number, file: File): Promise<any> => {
+    uploadPhoto: async (userId: number, file: File) => {
         const formData = new FormData();
         formData.append('file', file);
 
-        const response = await api.post(`/utilisateurs/${userId}/photo`, formData, {
+        const response = await api.post(`/api/utilisateurs/${userId}/photo`, formData, {
             headers: {
                 'Content-Type': 'multipart/form-data',
             },
@@ -684,11 +698,12 @@ export const userService = {
         return response.data;
     },
 
-    uploadPhotoWithParam: async (userId: number, file: File, paramName: string): Promise<any> => {
+    // Méthode alternative si besoin
+    uploadPhotoWithParam: async (userId: number, file: File, paramName: string = 'file') => {
         const formData = new FormData();
         formData.append(paramName, file);
 
-        const response = await api.post(`/utilisateurs/${userId}/photo`, formData, {
+        const response = await api.post(`/api/utilisateurs/${userId}/photo`, formData, {
             headers: {
                 'Content-Type': 'multipart/form-data',
             },
@@ -706,5 +721,6 @@ export const userService = {
         return response.data;
     }
 };
+
 
 export default api;

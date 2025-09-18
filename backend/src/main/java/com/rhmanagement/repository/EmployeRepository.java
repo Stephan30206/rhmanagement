@@ -20,13 +20,14 @@ public interface EmployeRepository extends JpaRepository<Employe, Long> {
 
     List<Employe> findByPoste(Employe.Poste poste);
 
+    // Modifier :search en :query
     @Query("SELECT e FROM Employe e WHERE " +
-            "LOWER(e.nom) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-            "LOWER(e.prenom) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-            "e.matricule LIKE CONCAT('%', :search, '%')")
-    List<Employe> searchEmployes(@Param("search") String search);
+            "LOWER(e.nom) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
+            "LOWER(e.prenom) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
+            "e.matricule LIKE CONCAT('%', :query, '%')")
+    List<Employe> searchEmployes(@Param("query") String query);
 
-    @Query("SELECT e FROM Employe e WHERE e.poste IN ('PASTEUR_TITULAIRE', 'PASTEUR_ASSOCIE', 'EVANGELISTE', 'ANCIEN', 'MISSIONNAIRE')")
+    @Query("SELECT e FROM Employe e WHERE e.poste IN (' EVANGELISTE', 'PASTEUR_STAGIAIRE', 'PASTEUR_AUTORISE', 'PASTEUR_CONSACRE')")
     List<Employe> findAllPasteurs();
 
     long countByStatut(Employe.StatutEmploye statut);

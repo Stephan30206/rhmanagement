@@ -10,36 +10,43 @@ import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class PdfExportService {
 
     public ByteArrayInputStream generateEtatServicePdf(Employe employe, List<HistoriquePoste> historique) {
         try {
+            // 🔹 TRIER LA LISTE PAR DATE DE DÉBUT (CROISSANT). Années ascendantes
+            List<HistoriquePoste> historiqueTrie = historique.stream()
+                    .sorted(Comparator.comparing(HistoriquePoste::getDateDebut))
+                    .collect(Collectors.toList());
+
+            // Document A4 en format paysage
             Document document = new Document(PageSize.A4.rotate());
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             PdfWriter.getInstance(document, out);
             document.open();
 
-            // Titre
+            // ====== TITRE ======
             Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 16);
             Paragraph title = new Paragraph("ÉTAT DE SERVICE ANNUEL", titleFont);
             title.setAlignment(Element.ALIGN_CENTER);
             title.setSpacingAfter(20);
             document.add(title);
 
-            // Informations employé
+            // ====== INFORMATIONS EMPLOYÉ ======
             Font infoFont = FontFactory.getFont(FontFactory.HELVETICA, 12);
-            document.add(new Paragraph("Nom: " + employe.getPrenom() + " " + employe.getNom(), infoFont));
-            document.add(new Paragraph("Matricule: " + employe.getMatricule(), infoFont));
-            document.add(new Paragraph("Poste actuel: " + employe.getPoste(), infoFont));
-            document.add(new Paragraph(" "));
+            document.add(new Paragraph("Nom : " + employe.getPrenom() + " " + employe.getNom(), infoFont));
+            document.add(new Paragraph("Matricule : " + employe.getMatricule(), infoFont));
+            document.add(new Paragraph("Poste actuel : " + employe.getPoste(), infoFont));
+            document.add(new Paragraph(" ")); // espace
 
-            // Tableau d'état de service
-            PdfPTable table = new PdfPTable(10);
+            // ====== TABLEAU ÉTAT DE SERVICE ======
+            PdfPTable table = new PdfPTable(11);
             table.setWidthPercentage(100);
             table.setSpacingBefore(10);
 
@@ -48,7 +55,7 @@ public class PdfExportService {
                     "Année", "Poste/Genre de Travail", "Organisation qui engage",
                     "Commence le J/M/A", "Termine le J/M/A", "Salaire à plein temps",
                     "Salaire à temps partiel", "Salaire à l'heure", "% de Salaire",
-                    "100% de Salaire De base"
+                    "100% de Salaire de base", "Signature des adminis"
             };
 
             for (String header : headers) {
@@ -58,11 +65,12 @@ public class PdfExportService {
                 table.addCell(cell);
             }
 
-            // Données
+            // ====== CONTENU DU TABLEAU ======
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-            for (HistoriquePoste poste : historique) {
+
+            for (HistoriquePoste poste : historiqueTrie) {
                 // Année
-                table.addCell(createCell(poste.getDateDebut().getYear() + ""));
+                table.addCell(createCell(String.valueOf(poste.getDateDebut().getYear())));
 
                 // Poste
                 table.addCell(createCell(poste.getPoste()));
@@ -74,8 +82,9 @@ public class PdfExportService {
                 table.addCell(createCell(poste.getDateDebut().format(formatter)));
 
                 // Date fin
-                String dateFin = poste.getDateFin() != null ?
-                        poste.getDateFin().format(formatter) : "Présent";
+                String dateFin = poste.getDateFin() != null
+                        ? poste.getDateFin().format(formatter)
+                        : "Présent";
                 table.addCell(createCell(dateFin));
 
                 // Salaire plein temps
@@ -92,17 +101,31 @@ public class PdfExportService {
 
                 // Salaire base 100%
                 table.addCell(createCell(formatCurrency(poste.getSalaireBase100())));
+
+                // Signature vide
+                table.addCell(createCell(""));
             }
 
+            // Ajout du tableau au document
             document.add(table);
-            document.close();
 
+            // ====== SECTION SIGNATURE ======
+            document.add(new Paragraph("\n\n"));
+            PdfPTable signatureTable = new PdfPTable(2);
+            signatureTable.setWidthPercentage(100);
+            signatureTable.setSpacingBefore(20);
+            document.add(signatureTable);
+
+            // Fermeture
+            document.close();
             return new ByteArrayInputStream(out.toByteArray());
+
         } catch (Exception e) {
             throw new RuntimeException("Erreur lors de la génération du PDF", e);
         }
     }
 
+    // ====== MÉTHODES UTILITAIRES ======
     private PdfPCell createCell(String content) {
         PdfPCell cell = new PdfPCell(new Phrase(content, FontFactory.getFont(FontFactory.HELVETICA, 9)));
         cell.setHorizontalAlignment(Element.ALIGN_CENTER);

@@ -24,9 +24,6 @@ public class AffectationPastorale {
     @JsonBackReference
     private Employe pasteur;
 
-    @Column(name = "eglise_locale", nullable = false, length = 100)
-    private String egliseLocale;
-
     @Column(name = "district", nullable = false, length = 100)
     private String district;
 
@@ -57,15 +54,10 @@ public class AffectationPastorale {
     private LocalDate dateMiseAJour = LocalDate.now();
 
     public enum Fonction {
-        PASTEUR_TITULAIRE,
-        PASTEUR_ASSOCIE,
-        PASTEUR_STAGIAIRE,
-        PIONNIER,
         EVANGELISTE,
-        ANCIEN,
-        RESPONSABLE_DISTRICT,
-        SECRETAIRE_DISTRICT,
-        TRESORIER_DISTRICT
+        PASTEUR_STAGIAIRE,
+        PASTEUR_AUTORISE,
+        PASTEUR_CONSACRE,
     }
 
     public enum StatutAffectation {

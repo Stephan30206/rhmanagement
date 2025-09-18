@@ -17,6 +17,9 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onRegister, onSwitchToLogin
         prenom: "",
         telephone: "",
         poste: "Administrateur RH FMC",
+        adresse: "",
+        dateNaissance: "",
+        genre: ""
     });
     const [photoFile, setPhotoFile] = useState<File | null>(null);
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -75,6 +78,9 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onRegister, onSwitchToLogin
                 prenom: formData.prenom,
                 telephone: formData.telephone,
                 poste: formData.poste,
+                adresse: formData.adresse,
+                dateNaissance: formData.dateNaissance,
+                genre: formData.genre
             };
 
             console.log("Données envoyées:", userData);
@@ -83,47 +89,28 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onRegister, onSwitchToLogin
             console.log("Réponse du serveur:", response);
 
             // Upload de la photo si elle existe
-            if (photoFile && response.id) {
+            if (photoFile && response.user?.id) {
                 try {
-                    // Délai pour s'assurer que le token est bien configuré
-                    await new Promise(resolve => setTimeout(resolve, 200));
+                    // Attendre un court instant pour s'assurer que l'utilisateur est bien créé
+                    await new Promise(resolve => setTimeout(resolve, 500));
 
-                    // Essayer différents noms de paramètre courants pour le backend Spring
-                    const paramNames = ['file', 'image', 'photo', 'avatar'];
-                    let uploadSuccess = false;
+                    // Upload de la photo
+                    const uploadResponse = await userService.uploadPhoto(response.user.id, photoFile);
+                    console.log('Photo uploadée avec succès:', uploadResponse);
 
-                    for (const paramName of paramNames) {
-                        try {
-                            await userService.uploadPhotoWithParam(response.user.id, photoFile, paramName);
-                            uploadSuccess = true;
-                            console.log(`Photo uploadée avec succès avec le paramètre: ${paramName}`);
-                            break;
-                        } catch (paramError) {
-                            console.log(`Tentative avec paramètre ${paramName} a échoué, essai suivant...`);
-                        }
-                    }
-
-                    if (!uploadSuccess) {
-                        setError('Compte créé mais impossible d\'uploader la photo. Vous pourrez l\'ajouter plus tard dans votre profil.');
-                        // Stocker la photo en attente pour upload ultérieur
-                        localStorage.setItem('pending_photo', JSON.stringify({
-                            userId: response.user.id,
-                            photoData: photoPreview,
-                            fileName: photoFile.name
-                        }));
-                    }
                 } catch (uploadError: any) {
-                    console.error('Erreur upload photo détaillée:', uploadError.response?.data);
-                    const errorMessage = uploadError.response?.data?.message ||
-                        uploadError.response?.data?.error ||
-                        'Format ou taille invalide';
+                    console.error('Erreur upload photo détaillée:', uploadError);
+                    const errorMessage = uploadError.response?.data?.error ||
+                        uploadError.response?.data?.message ||
+                        'Erreur lors de l\'upload de la photo';
+
                     setError('Compte créé mais erreur lors de l\'upload de la photo: ' + errorMessage);
 
-                    // Stocker la photo en attente malgré l'erreur
+                    // Stocker la photo en attente pour upload ultérieur
                     localStorage.setItem('pending_photo', JSON.stringify({
-                        userId: response.id,
-                        photoData: photoPreview,
-                        fileName: photoFile.name
+                        userId: response.user.id,
+                        fileName: photoFile.name,
+                        fileType: photoFile.type
                     }));
                 }
             }
@@ -248,19 +235,36 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onRegister, onSwitchToLogin
                                     />
                                 </div>
 
-                                {/* Téléphone */}
+                                {/* Genre */}
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Téléphone professionnel *
+                                        Genre *
                                     </label>
-                                    <input
-                                        type="tel"
-                                        name="telephone"
-                                        value={formData.telephone}
+                                    <select
+                                        name="genre"
+                                        value={formData.genre}
                                         onChange={handleChange}
                                         required
                                         className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                        placeholder="+261 XX XX XXX XX"
+                                    >
+                                        <option value="">Sélectionnez</option>
+                                        <option value="M">Masculin</option>
+                                        <option value="F">Féminin</option>
+                                    </select>
+                                </div>
+
+                                {/* Date de naissance */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Date de naissance *
+                                    </label>
+                                    <input
+                                        type="date"
+                                        name="dateNaissance"
+                                        value={formData.dateNaissance}
+                                        onChange={handleChange}
+                                        required
+                                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                     />
                                 </div>
                             </div>
@@ -283,6 +287,38 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onRegister, onSwitchToLogin
                                     />
                                 </div>
 
+                                {/* Adresse */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Adresse *
+                                    </label>
+                                    <input
+                                        type="text"
+                                        name="adresse"
+                                        value={formData.adresse}
+                                        onChange={handleChange}
+                                        required
+                                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        placeholder="Adresse complète"
+                                    />
+                                </div>
+
+                                {/* Téléphone */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Téléphone professionnel *
+                                    </label>
+                                    <input
+                                        type="tel"
+                                        name="telephone"
+                                        value={formData.telephone}
+                                        onChange={handleChange}
+                                        required
+                                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        placeholder="+261 XX XX XXX XX"
+                                    />
+                                </div>
+
                                 {/* Poste */}
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -295,10 +331,8 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onRegister, onSwitchToLogin
                                         required
                                         className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                     >
-                                        <option value="Administrateur RH FMC">Administrateur RH FMC</option>
-                                        <option value="Responsable RH">Responsable RH</option>
-                                        <option value="Secrétaire Fédéral">Secrétaire Fédéral</option>
-                                        <option value="Responsable District">Responsable District</option>
+                                        <option value="ADMIN">Administrateur RH FMC</option>
+                                        <option value="ASSISTANT_RH">Assistant RH</option>
                                     </select>
                                 </div>
 
@@ -310,7 +344,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onRegister, onSwitchToLogin
                                     <input
                                         type="text"
                                         name="nomUtilisateur"
-                                        value={formData.nom_utilisateur}
+                                        value={formData.nomUtilisateur}
                                         onChange={handleChange}
                                         required
                                         className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -325,7 +359,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onRegister, onSwitchToLogin
                                     <input
                                         type="password"
                                         name="motDePasse"
-                                        value={formData.mot_de_passe}
+                                        value={formData.motDePasse}
                                         onChange={handleChange}
                                         required
                                         minLength={6}

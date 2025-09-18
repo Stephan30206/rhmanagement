@@ -68,22 +68,14 @@ export const STATUT_MATRIMONIAL_LABELS = {
 
 // Niveaux d'accréditation
 export const NIVEAU_ACCREDITATION = {
-    LOCAL: 'LOCAL',
     DISTRICT: 'DISTRICT',
-    FEDERATION: 'FEDERATION',
-    UNION: 'UNION',
-    DIVISION: 'DIVISION',
-    CONFERENCE_GENERALE: 'CONFERENCE_GENERALE'
+    FEDERATION: 'FEDERATION'
 };
 
 // Labels des niveaux d'accréditation
 export const NIVEAU_ACCREDITATION_LABELS = {
-    [NIVEAU_ACCREDITATION.LOCAL]: 'Local',
     [NIVEAU_ACCREDITATION.DISTRICT]: 'District',
-    [NIVEAU_ACCREDITATION.FEDERATION]: 'Fédération',
-    [NIVEAU_ACCREDITATION.UNION]: 'Union',
-    [NIVEAU_ACCREDITATION.DIVISION]: 'Division',
-    [NIVEAU_ACCREDITATION.CONFERENCE_GENERALE]: 'Conférence Générale'
+    [NIVEAU_ACCREDITATION.FEDERATION]: 'Fédération'
 };
 
 // Statuts des congés
@@ -427,7 +419,7 @@ export const FORM_DEFAULTS = {
         statutMatrimonial: STATUT_MATRIMONIAL.CELIBATAIRE,
         typeContrat: TYPE_CONTRAT.CDD,
         statut: STATUT_EMPLOYE.ACTIF,
-        niveauAccreditation: NIVEAU_ACCREDITATION.LOCAL,
+        niveauAccreditation: NIVEAU_ACCREDITATION.DISTRICT,
         salaireBase: 0,
         pourcentageSalaire: 100
     }

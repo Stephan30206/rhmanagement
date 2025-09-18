@@ -27,7 +27,7 @@ public class AffectationPastoraleService {
         Optional<AffectationPastorale> optionalAffectation = affectationPastoraleRepository.findById(id);
         if (optionalAffectation.isPresent()) {
             AffectationPastorale affectation = optionalAffectation.get();
-            affectation.setEgliseLocale(affectationDetails.getEgliseLocale());
+//            affectation.setEgliseLocale(affectationDetails.getEgliseLocale());
             affectation.setDistrict(affectationDetails.getDistrict());
             affectation.setDateDebut(affectationDetails.getDateDebut());
             affectation.setDateFin(affectationDetails.getDateFin());
@@ -47,11 +47,10 @@ public class AffectationPastoraleService {
     public boolean isPasteur(Optional<Employe> employe) {
         if (employe.isPresent()) {
             Employe.Poste poste = employe.get().getPoste();
-            return poste == Employe.Poste.PASTEUR_TITURLAIRE ||
-                    poste == Employe.Poste.PASTEUR_ASSOCIE ||
-                    poste == Employe.Poste.EVANGELISTE ||
-                    poste == Employe.Poste.MISSIONNAIRE ||
-                    poste == Employe.Poste.ANCIEN;
+            return poste == Employe.Poste.EVANGELISTE ||
+                    poste == Employe.Poste.PASTEUR_STAGIAIRE ||
+                    poste == Employe.Poste.PASTEUR_AUTORISE||
+                    poste == Employe.Poste.PASTEUR_CONSACRE;
         }
         return false;
     }

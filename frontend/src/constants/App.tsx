@@ -25,10 +25,10 @@ import {
     Lock,
     Shield,
     XCircle,
-    Camera
+    Camera,
+    Search
 } from 'lucide-react'
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from "recharts";
-
 
 import EmployeForm from "../components/EmployeForm.tsx";
 import EmployeDetails from "../components/EmployeDetails.tsx";
@@ -100,15 +100,58 @@ function App() {
     const [sidebarOpen, setSidebarOpen] = useState<boolean>(false)
     const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false)
     const [currentPage, setCurrentPage] = useState<string>('dashboard')
-    const [searchTerm, setSearchTerm] = useState<string>('')
     const [loading, setLoading] = useState<boolean>(true)
     const [error, setError] = useState<string>('')
     const [selectedEmploye, setSelectedEmploye] = useState<Employe | null>(null)
-    const [showForm, setShowForm] = useState(false)
     const [editingEmploye, setEditingEmploye] = useState<Employe | null>(null)
     const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false)
     const [user, setUser] = useState<any>(null)
     const [showRegister, setShowRegister] = useState(false)
+    const [showDetails, setShowDetails] = useState(false);
+    const [showEmployeForm, setShowEmployeForm] = useState(false);
+
+// Modifiez les handlers
+    const handleViewDetails = (employe: Employe) => {
+        setSelectedEmploye(employe);
+        setShowDetails(true);
+        setShowEmployeForm(false);
+        // Scroll vers le haut pour voir les détails
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const handleEdit = (employe: Employe) => {
+        setEditingEmploye(employe);
+        setShowEmployeForm(true);
+        setShowDetails(false);
+        // Scroll vers le haut pour voir le formulaire
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const handleCreate = () => {
+        setEditingEmploye(null);
+        setShowEmployeForm(true);
+        setShowDetails(false);
+        // Scroll vers le haut pour voir le formulaire
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const handleSave = () => {
+        loadEmployes();
+        setShowEmployeForm(false);
+        setShowDetails(false);
+        setEditingEmploye(null);
+        setSelectedEmploye(null);
+    };
+
+    const handleCloseDetails = () => {
+        setShowDetails(false);
+        setSelectedEmploye(null);
+    };
+
+    const handleCloseForm = () => {
+        setShowEmployeForm(false);
+        setEditingEmploye(null);
+    };
 
     // Ensure employes is always an array
     const safeEmployes = React.useMemo(() => {
@@ -261,26 +304,6 @@ function App() {
         setCurrentPage('dashboard');
     }
 
-    const handleViewDetails = (employe: Employe) => {
-        setSelectedEmploye(employe);
-    };
-
-    const handleEdit = (employe: Employe) => {
-        setEditingEmploye(employe);
-        setShowForm(true);
-    };
-
-    const handleCreate = () => {
-        setEditingEmploye(null);
-        setShowForm(true);
-    };
-
-    const handleSave = () => {
-        loadEmployes();
-        setShowForm(false);
-        setEditingEmploye(null);
-    };
-
     const loadEmployes = async () => {
         try {
             setLoading(true)
@@ -295,28 +318,6 @@ function App() {
             setLoading(false)
         }
     }
-
-    // Dans App.tsx, remplacez la fonction handleSearch par celle-ci :
-    const handleSearch = async (term: string) => {
-        setSearchTerm(term);
-
-        if (term.trim() === '') {
-            await loadEmployes();
-        } else {
-            try {
-                setLoading(true);
-                const results = await employeService.searchEmployes(term);
-                setEmployes(Array.isArray(results) ? results : []);
-                setError('');
-            } catch (err) {
-                console.error('Erreur de recherche:', err);
-                setError('Erreur lors de la recherche');
-                setEmployes([]);
-            } finally {
-                setLoading(false);
-            }
-        }
-    };
 
     const handleDeleteEmploye = async (id: number) => {
         if (window.confirm('Êtes-vous sûr de vouloir supprimer cet employé ?')) {
@@ -425,18 +426,6 @@ function App() {
                         >
                             <Menu className="h-6 w-6"/>
                         </button>
-
-                        {/* Barre de recherche */}
-                        <input
-                            type="text"
-                            placeholder="Rechercher..."
-                            value={searchTerm}
-                            onChange={(e) => {
-                                setSearchTerm(e.target.value);
-                                handleSearch(e.target.value);
-                            }}
-                            className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                        />
                     </div>
 
                     {/* Partie droite - Notifications + Paramètres + Profil */}
@@ -634,152 +623,258 @@ function App() {
         );
     };
 
-    const Employes = () => (
-        <ErrorBoundary>
-            <div className="space-y-6">
-                <div className="sm:flex sm:items-center sm:justify-between">
-                    <div>
-                        <h2 className="text-3xl font-bold text-gray-900">Employés</h2>
-                        <p className="mt-2 text-sm text-gray-600">
-                            Gestion de tous les employés de l'organisation
-                        </p>
-                    </div>
-                    <button
-                        onClick={handleCreate}
-                        className="inline-flex items-center px-4 py-2 rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors"
-                    >
-                        <Plus className="h-4 w-4 mr-2"/>
-                        Nouvel employé
-                    </button>
-                </div>
+    const Employes = () => {
+        const [searchTerm, setSearchTerm] = useState('');
+        const [filteredEmployes, setFilteredEmployes] = useState<Employe[]>([]);
 
-                {error && (
-                    <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-                        {error}
-                    </div>
-                )}
+        // Filtrage intelligent des employés
+        useEffect(() => {
+            if (!searchTerm.trim()) {
+                setFilteredEmployes(safeEmployes);
+                return;
+            }
 
-                {loading ? (
-                    <div className="flex justify-center items-center py-12">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+            const term = searchTerm.toLowerCase().trim();
+            const filtered = safeEmployes.filter(employe => {
+                return (
+                    employe.nom?.toLowerCase().includes(term) ||
+                    employe.prenom?.toLowerCase().includes(term) ||
+                    employe.matricule?.toLowerCase().includes(term) ||
+                    employe.email?.toLowerCase().includes(term) ||
+                    employe.telephone?.includes(term) ||
+                    employe.poste?.toLowerCase().includes(term) ||
+                    employe.statut?.toLowerCase().includes(term)
+                );
+            });
+
+            setFilteredEmployes(filtered);
+        }, [searchTerm, safeEmployes]);
+
+        // Fonction pour obtenir la couleur du statut
+        const getStatusColor = (statut: string) => {
+            switch (statut) {
+                case 'ACTIF': return 'bg-green-100 text-green-800';
+                case 'INACTIF': return 'bg-red-100 text-red-800';
+                case 'EN_CONGE': return 'bg-yellow-100 text-yellow-800';
+                default: return 'bg-gray-100 text-gray-800';
+            }
+        };
+
+        // Fonction pour formater le statut
+        const formatStatut = (statut: string) => {
+            switch (statut) {
+                case 'EN_CONGE': return 'EN CONGÉ';
+                default: return statut;
+            }
+        };
+
+        return (
+            <ErrorBoundary>
+                <div className="space-y-6">
+                    {/* En-tête */}
+                    <div className="bg-white rounded-xl border border-gray-200 p-6">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                            <div>
+                                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Employés</h1>
+                                <p className="mt-1 text-sm text-gray-600">
+                                    Gestion de tous les employés de l'organisation
+                                </p>
+                            </div>
+
+                            <button
+                                onClick={handleCreate}
+                                className="inline-flex items-center px-4 py-2 rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors whitespace-nowrap"
+                            >
+                                <Plus className="h-4 w-4 mr-2"/>
+                                Nouvel employé
+                            </button>
+                        </div>
                     </div>
-                ) : (
-                    <div className="bg-white shadow overflow-hidden sm:rounded-lg">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Photo</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employé</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Matricule</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Poste</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                            </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                            {safeEmployes.map((employe) => (
-                                <tr key={employe.id} className="hover:bg-gray-50">
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        {employe.photoProfil ? (
-                                            <img
-                                                src={`http://localhost:8080/uploads/${employe.photoProfil}`}
-                                                alt={`${employe.prenom} ${employe.nom}`}
-                                                className="h-10 w-10 rounded-full object-cover"
-                                            />
-                                        ) : (
-                                            <div
-                                                className="h-10 w-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold">
-                                                {(employe.prenom?.[0] || '') + (employe.nom?.[0] || '')}
-                                            </div>
-                                        )}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="flex items-center">
-                                            <div>
-                                                <div
-                                                    className="text-sm font-medium text-gray-900">{employe.prenom} {employe.nom}</div>
-                                                <div className="text-sm text-gray-500">{employe.email}</div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{employe.matricule}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{employe.poste?.replace('_', ' ')}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{employe.telephone}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                                            employe.statut === 'ACTIF' ? 'bg-green-100 text-green-800' :
-                                                employe.statut === 'INACTIF' ? 'bg-red-100 text-red-800' :
-                                                    'bg-yellow-100 text-yellow-800'
-                                        }`}>
-                                            {employe.statut}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium flex space-x-2">
-                                        <button
-                                            onClick={() => handleViewDetails(employe)}
-                                            className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-100"
-                                            title="Voir détails"
-                                        >
-                                            <Eye className="h-4 w-4"/>
-                                        </button>
-                                        <button
-                                            onClick={() => handleEdit(employe)}
-                                            className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-100"
-                                            title="Modifier"
-                                        >
-                                            <Edit className="h-4 w-4"/>
-                                        </button>
-                                        <button
-                                            onClick={() => handleDeleteEmploye(employe.id)}
-                                            className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-100"
-                                            title="Supprimer"
-                                        >
-                                            <Trash2 className="h-4 w-4"/>
-                                        </button>
-                                        <button
-                                            onClick={() => window.print()}
-                                            className="text-gray-600 hover:text-gray-900 p-1 rounded hover:bg-gray-100"
-                                            title="Imprimer"
-                                        >
-                                            <Download className="h-4 w-4"/>
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
-                            </tbody>
-                        </table>
-                        {safeEmployes.length === 0 && (
-                            <div className="text-center py-12">
-                                <Users className="mx-auto h-12 w-12 text-gray-400"/>
-                                <h3 className="mt-2 text-lg font-medium text-gray-900">Aucun employé</h3>
-                                <p className="mt-1 text-sm text-gray-500">Commencez par ajouter un nouvel employé.</p>
+
+                    {/* Formulaire ou détails en haut */}
+                    {(showEmployeForm || showDetails) && (
+                        <div className="bg-white rounded-lg shadow-lg border border-blue-200">
+                            {showEmployeForm && (
+                                <EmployeForm
+                                    employe={editingEmploye}
+                                    onClose={handleCloseForm}
+                                    onSave={handleSave}
+                                />
+                            )}
+                            {showDetails && selectedEmploye && (
+                                <EmployeDetails
+                                    employe={selectedEmploye}
+                                    onClose={handleCloseDetails}
+                                    onEdit={handleEdit}
+                                />
+                            )}
+                        </div>
+                    )}
+
+                    {/* Barre de recherche */}
+                    <div className="bg-white p-4 rounded-lg shadow">
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                            <input
+                                type="text"
+                                placeholder="Rechercher un employé par nom, prénom, matricule, poste, email, téléphone..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm"
+                            />
+                            {searchTerm && (
+                                <button
+                                    onClick={() => setSearchTerm('')}
+                                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                >
+                                    <X className="h-4 w-4" />
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Indicateur de résultats */}
+                        {searchTerm && (
+                            <div className="mt-2 text-sm text-gray-500">
+                                {filteredEmployes.length} résultat(s) trouvé(s) pour "{searchTerm}"
                             </div>
                         )}
                     </div>
-                )}
 
-                {selectedEmploye && (
-                    <EmployeDetails
-                        employe={selectedEmploye}
-                        onClose={() => setSelectedEmploye(null)}
-                        onEdit={handleEdit}
-                    />
-                )}
+                    {error && (
+                        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                            {error}
+                        </div>
+                    )}
 
-                {showForm && (
-                    <EmployeForm
-                        employe={editingEmploye}
-                        onClose={() => {
-                            setShowForm(false);
-                            setEditingEmploye(null);
-                        }}
-                        onSave={handleSave}
-                    />
-                )}
-            </div>
-        </ErrorBoundary>
-    )
+                    {/* Liste des employés en bas - Version compacte */}
+                    <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+                        {loading ? (
+                            <div className="flex justify-center items-center py-12">
+                                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+                            </div>
+                        ) : filteredEmployes.length === 0 ? (
+                            <div className="text-center py-12">
+                                <Users className="mx-auto h-12 w-12 text-gray-400"/>
+                                <h3 className="mt-2 text-lg font-medium text-gray-900">
+                                    {searchTerm ? 'Aucun employé trouvé' : 'Aucun employé'}
+                                </h3>
+                                <p className="mt-1 text-sm text-gray-500">
+                                    {searchTerm
+                                        ? 'Aucun résultat ne correspond à votre recherche'
+                                        : 'Commencez par ajouter un nouvel employé.'
+                                    }
+                                </p>
+                                {!searchTerm && (
+                                    <button
+                                        onClick={handleCreate}
+                                        className="mt-4 inline-flex items-center px-4 py-2 rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+                                    >
+                                        <Plus className="h-4 w-4 mr-2"/>
+                                        Ajouter un employé
+                                    </button>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full divide-y divide-gray-200 text-sm">
+                                    <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Employé
+                                        </th>
+                                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Matricule
+                                        </th>
+                                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Poste
+                                        </th>
+                                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Contact
+                                        </th>
+                                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Statut
+                                        </th>
+                                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Actions
+                                        </th>
+                                    </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-200">
+                                    {filteredEmployes.map((employe) => (
+                                        <tr key={employe.id} className="hover:bg-gray-50">
+                                            <td className="px-3 py-2 whitespace-nowrap">
+                                                <div className="flex items-center">
+                                                    {employe.photoProfil ? (
+                                                        <img
+                                                            src={`http://localhost:8080/uploads/${employe.photoProfil}`}
+                                                            alt={`${employe.prenom} ${employe.nom}`}
+                                                            className="h-8 w-8 rounded-full object-cover mr-2"
+                                                        />
+                                                    ) : (
+                                                        <div className="h-8 w-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-xs mr-2">
+                                                            {(employe.prenom?.[0] || '') + (employe.nom?.[0] || '')}
+                                                        </div>
+                                                    )}
+                                                    <div className="min-w-0">
+                                                        <div className="text-xs font-medium text-gray-900 truncate max-w-[120px]">
+                                                            {employe.prenom} {employe.nom}
+                                                        </div>
+                                                        <div className="text-xs text-gray-500 truncate max-w-[120px]">
+                                                            {employe.email}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">
+                                                {employe.matricule}
+                                            </td>
+                                            <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500 max-w-[100px] truncate">
+                                                {employe.poste?.replace('_', ' ')}
+                                            </td>
+                                            <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">
+                                                {employe.telephone}
+                                            </td>
+                                            <td className="px-3 py-2 whitespace-nowrap">
+                                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(employe.statut)}`}>
+                                                    {formatStatut(employe.statut)}
+                                                </span>
+                                            </td>
+                                            <td className="px-3 py-2 whitespace-nowrap text-xs font-medium">
+                                                <div className="flex space-x-1">
+                                                    <button
+                                                        onClick={() => handleViewDetails(employe)}
+                                                        className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-100"
+                                                        title="Voir détails"
+                                                    >
+                                                        <Eye className="h-3 w-3"/>
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleEdit(employe)}
+                                                        className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-100"
+                                                        title="Modifier"
+                                                    >
+                                                        <Edit className="h-3 w-3"/>
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDeleteEmploye(employe.id)}
+                                                        className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-100"
+                                                        title="Supprimer"
+                                                    >
+                                                        <Trash2 className="h-3 w-3"/>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </ErrorBoundary>
+        );
+    };
 
     const Conges = () => {
         const [showDemandeForm, setShowDemandeForm] = useState(false);
@@ -1145,7 +1240,7 @@ function App() {
             telephone: user.telephone || '',
             poste: user.poste || '',
             adresse: user.adresse || '',
-            dateNaissance: user.dateNaissance || '',
+            dateNaissance: user.dateNaissance ? user.dateNaissance.split('T')[0] : '',
             genre: user.genre || ''
         });
 
@@ -1164,7 +1259,7 @@ function App() {
                 telephone: user.telephone || '',
                 poste: user.poste || '',
                 adresse: user.adresse || '',
-                dateNaissance: user.dateNaissance || '',
+                dateNaissance: user.dateNaissance ? user.dateNaissance.split('T')[0] : '',
                 genre: user.genre || ''
             });
         }, [user]);
@@ -1201,7 +1296,6 @@ function App() {
                 }
 
                 // Structurez les données selon ce que l'API attend
-                // Utilisez les mêmes noms de champs que votre backend
                 const profileData = {
                     nom: formData.nom.trim(),
                     prenom: formData.prenom.trim(),
@@ -1213,7 +1307,7 @@ function App() {
                     genre: formData.genre || null
                 };
 
-                // Supprimez les champs vides/null pour éviter les erreurs de validation
+                // Supprimez les champs vides/null
                 const cleanedData = Object.fromEntries(
                     Object.entries(profileData).filter(([_, value]) => value !== null && value !== '')
                 );
@@ -1224,29 +1318,9 @@ function App() {
                 setUser(updatedUser);
                 setIsEditing(false);
                 alert('Profil mis à jour avec succès!');
-            } catch (error) {
-                console.error('Erreur détaillée:', error.response?.data);
-                console.error('Status:', error.response?.status);
-                console.error('Headers:', error.response?.headers);
-
-                // Gestion d'erreur plus détaillée
-                let errorMessage = 'Erreur lors de la mise à jour du profil';
-
-                if (error.response?.data?.message) {
-                    errorMessage = error.response.data.message;
-                } else if (error.response?.data?.error) {
-                    errorMessage = error.response.data.error;
-                } else if (error.response?.data?.errors) {
-                    // Si l'API renvoie des erreurs de validation
-                    const validationErrors = error.response.data.errors;
-                    if (Array.isArray(validationErrors)) {
-                        errorMessage = validationErrors.join(', ');
-                    } else if (typeof validationErrors === 'object') {
-                        errorMessage = Object.values(validationErrors).join(', ');
-                    }
-                }
-
-                alert(errorMessage);
+            } catch (error: any) {
+                console.error('Erreur détaillée:', error);
+                alert(error.response?.data?.message || 'Erreur lors de la mise à jour du profil');
             } finally {
                 setSavingProfile(false);
             }
@@ -1260,7 +1334,7 @@ function App() {
                 telephone: user.telephone || '',
                 poste: user.poste || '',
                 adresse: user.adresse || '',
-                dateNaissance: user.dateNaissance || '',
+                dateNaissance: user.dateNaissance ? user.dateNaissance.split('T')[0] : '',
                 genre: user.genre || ''
             });
             setIsEditing(false);
@@ -1338,9 +1412,6 @@ function App() {
         const getRoleLabel = (role: string) => {
             switch (role) {
                 case 'ADMIN': return 'Administrateur';
-                case 'SECRETAIRE_FEDERAL': return 'Secrétaire Fédéral';
-                case 'RESPONSABLE_DISTRICT': return 'Responsable de District';
-                case 'PASTEUR': return 'Pasteur';
                 case 'ASSISTANT_RH': return 'Assistant RH';
                 default: return role || 'Utilisateur';
             }

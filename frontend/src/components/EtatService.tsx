@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Download, Calendar, User, Search, Plus, Edit, Trash2 } from 'lucide-react';
 import { employeService, type Employe } from '../services/api';
 
@@ -7,10 +7,10 @@ interface HistoriquePoste {
     poste: string;
     organisation: string;
     dateDebut: string;
-    dateFin: string;
-    salairePleinTemps: number;
-    pourcentageSalaire: number;
-    salaireBase100: number;
+    dateFin: string | null;
+    salairePleinTemps: number | null;
+    pourcentageSalaire: number | null;
+    salaireBase100: number | null;
 }
 
 const EtatService: React.FC = () => {
@@ -50,7 +50,7 @@ const EtatService: React.FC = () => {
         if (!selectedEmploye) return;
         try {
             const data = await employeService.getHistorique(selectedEmploye.id);
-            // @ts-ignore
+            // @ts-ignore si nécessaire selon le shape de la réponse
             setHistorique(data);
         } catch (error) {
             console.error('Erreur chargement historique:', error);
@@ -59,12 +59,33 @@ const EtatService: React.FC = () => {
 
     const handleSaveHistorique = async (historiqueData: HistoriquePoste) => {
         if (!selectedEmploye) return;
+
         try {
+            // ✅ Conversion uniquement pour l'appel API
+            const apiHistoriqueData = {
+                ...historiqueData,
+                dateFin: historiqueData.dateFin ?? undefined,
+                salairePleinTemps: historiqueData.salairePleinTemps ?? undefined,
+                pourcentageSalaire: historiqueData.pourcentageSalaire ?? undefined,
+                salaireBase100: historiqueData.salaireBase100 ?? undefined,
+            };
+
             if (editingHistorique?.id) {
-                await employeService.updateHistorique(selectedEmploye.id, editingHistorique.id, historiqueData);
+                // 🔄 Mise à jour
+                await employeService.updateHistorique(
+                    selectedEmploye.id,
+                    editingHistorique.id,
+                    apiHistoriqueData
+                );
             } else {
-                await employeService.saveHistorique(selectedEmploye.id, historiqueData);
+                // ➕ Création
+                await employeService.saveHistorique(
+                    selectedEmploye.id,
+                    apiHistoriqueData
+                );
             }
+
+            // ✅ Réinitialisation et rechargement après sauvegarde
             setShowHistoriqueForm(false);
             setEditingHistorique(null);
             loadHistorique();
@@ -102,6 +123,15 @@ const EtatService: React.FC = () => {
             console.error('Erreur export:', error);
         }
     };
+
+    // --- TRI : ordre croissant par dateDebut (années ascendantes) ---
+    const sortedHistorique = useMemo(() => {
+        return [...historique].sort((a, b) => {
+            const ta = a?.dateDebut ? new Date(a.dateDebut).getTime() : 0;
+            const tb = b?.dateDebut ? new Date(b.dateDebut).getTime() : 0;
+            return ta - tb; // croissant (ancien → récent)
+        });
+    }, [historique]);
 
     const filteredEmployes = employes.filter(emp =>
         emp.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -159,10 +189,9 @@ const EtatService: React.FC = () => {
                                 <div
                                     key={employe.id}
                                     onClick={() => setSelectedEmploye(employe)}
-                                    className={`p-3 rounded-lg cursor-pointer transition-colors ${
-                                        selectedEmploye?.id === employe.id
-                                            ? 'bg-blue-100 border border-blue-300'
-                                            : 'bg-gray-50 hover:bg-gray-100 border border-gray-200'
+                                    className={`p-3 rounded-lg cursor-pointer transition-colors ${selectedEmploye?.id === employe.id
+                                        ? 'bg-blue-100 border border-blue-300'
+                                        : 'bg-gray-50 hover:bg-gray-100 border border-gray-200'
                                     }`}
                                 >
                                     <div className="flex items-center">
@@ -250,11 +279,11 @@ const EtatService: React.FC = () => {
                                         </tr>
                                         </thead>
                                         <tbody className="bg-white divide-y divide-gray-200">
-                                        {historique.map((item) => (
+                                        {sortedHistorique.map((item) => (
                                             <tr key={item.id}>
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     <div className="text-sm text-gray-900">
-                                                        {new Date(item.dateDebut).toLocaleDateString('fr-FR')}
+                                                        {item.dateDebut ? new Date(item.dateDebut).toLocaleDateString('fr-FR') : ''}
                                                     </div>
                                                     <div className="text-sm text-gray-500">
                                                         {item.dateFin ? new Date(item.dateFin).toLocaleDateString('fr-FR') : 'Présent'}
@@ -268,10 +297,10 @@ const EtatService: React.FC = () => {
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     <div className="text-sm text-gray-900">
-                                                        {item.salairePleinTemps?.toLocaleString()} MGA
+                                                        {item.salairePleinTemps ? item.salairePleinTemps.toLocaleString() : '0'} MGA
                                                     </div>
                                                     <div className="text-sm text-gray-500">
-                                                        {item.pourcentageSalaire}% ({item.salaireBase100?.toLocaleString()} MGA)
+                                                        {item.pourcentageSalaire ?? 0}% ({item.salaireBase100 ? item.salaireBase100.toLocaleString() : '0'} MGA)
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -298,36 +327,13 @@ const EtatService: React.FC = () => {
                                         </tbody>
                                     </table>
                                 </div>
-                                {historique.length === 0 && (
+                                {sortedHistorique.length === 0 && (
                                     <div className="text-center py-12 text-gray-500">
                                         <Calendar className="w-16 h-16 mx-auto mb-4 text-gray-300" />
                                         <p>Aucun historique professionnel</p>
                                         <p className="text-sm">Commencez par ajouter un poste dans l'historique</p>
                                     </div>
                                 )}
-                            </div>
-
-                            {/* Statistiques */}
-                            <div className="bg-gray-50 rounded-lg p-6">
-                                <h4 className="text-lg font-medium text-gray-900 mb-4">Statistiques</h4>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div className="text-center">
-                                        <div className="text-2xl font-bold text-blue-600">{historique.length}</div>
-                                        <div className="text-sm text-gray-600">Postes occupés</div>
-                                    </div>
-                                    <div className="text-center">
-                                        <div className="text-2xl font-bold text-green-600">
-                                            {Math.max(...historique.map(h => h.salairePleinTemps || 0)).toLocaleString()} MGA
-                                        </div>
-                                        <div className="text-sm text-gray-600">Salaire le plus élevé</div>
-                                    </div>
-                                    <div className="text-center">
-                                        <div className="text-2xl font-bold text-purple-600">
-                                            {new Set(historique.map(h => h.organisation)).size}
-                                        </div>
-                                        <div className="text-sm text-gray-600">Organisations différentes</div>
-                                    </div>
-                                </div>
                             </div>
                         </div>
                     ) : (
@@ -341,9 +347,10 @@ const EtatService: React.FC = () => {
             </div>
 
             {/* Modal pour ajouter/modifier l'historique */}
-            {showHistoriqueForm && (
+            {showHistoriqueForm && selectedEmploye && (
                 <HistoriqueForm
                     historique={editingHistorique}
+                    selectedEmploye={selectedEmploye}
                     onClose={() => {
                         setShowHistoriqueForm(false);
                         setEditingHistorique(null);
@@ -355,21 +362,30 @@ const EtatService: React.FC = () => {
     );
 };
 
-// Composant pour le formulaire d'historique
+// Formulaire d'ajout/modification historique
 const HistoriqueForm: React.FC<{
     historique: HistoriquePoste | null;
+    selectedEmploye: Employe;
     onClose: () => void;
     onSave: (historique: HistoriquePoste) => void;
-}> = ({ historique, onClose, onSave }) => {
+}> = ({ historique, selectedEmploye, onClose, onSave }) => {
     const [formData, setFormData] = useState({
-        poste: historique?.poste || '',
+        poste: historique?.poste || selectedEmploye.poste || '',
         organisation: historique?.organisation || '',
         dateDebut: historique?.dateDebut || '',
         dateFin: historique?.dateFin || '',
-        salairePleinTemps: historique?.salairePleinTemps || 0,
         pourcentageSalaire: historique?.pourcentageSalaire || 100,
-        salaireBase100: historique?.salaireBase100 || 0
+        salaireBase100: historique?.salaireBase100 || 0,
+        salairePleinTemps: historique?.salairePleinTemps || 0
     });
+
+    // Calcul automatique du salaire plein temps
+    useEffect(() => {
+        setFormData(prev => ({
+            ...prev,
+            salairePleinTemps: (prev.salaireBase100 ?? 0) * ((prev.pourcentageSalaire ?? 0) / 100)
+        }));
+    }, [formData.salaireBase100, formData.pourcentageSalaire]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -380,7 +396,7 @@ const HistoriqueForm: React.FC<{
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-6 w-full max-w-2xl">
                 <h3 className="text-lg font-medium mb-4">
-                    {historique ? 'Modifier l\'historique' : 'Nouvel historique'}
+                    {historique ? "Modifier l'historique" : "Nouvel historique"}
                 </h3>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -388,10 +404,9 @@ const HistoriqueForm: React.FC<{
                             <label className="block text-sm font-medium text-gray-700">Poste</label>
                             <input
                                 type="text"
-                                required
                                 value={formData.poste}
-                                onChange={(e) => setFormData({ ...formData, poste: e.target.value })}
-                                className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                readOnly
+                                className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 bg-gray-100 cursor-not-allowed"
                             />
                         </div>
                         <div>
@@ -405,6 +420,7 @@ const HistoriqueForm: React.FC<{
                             />
                         </div>
                     </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Date de début</label>
@@ -420,22 +436,14 @@ const HistoriqueForm: React.FC<{
                             <label className="block text-sm font-medium text-gray-700">Date de fin</label>
                             <input
                                 type="date"
-                                value={formData.dateFin}
+                                value={formData.dateFin || ''}
                                 onChange={(e) => setFormData({ ...formData, dateFin: e.target.value })}
                                 className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                             />
                         </div>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Salaire plein temps</label>
-                            <input
-                                type="number"
-                                value={formData.salairePleinTemps}
-                                onChange={(e) => setFormData({ ...formData, salairePleinTemps: parseFloat(e.target.value) })}
-                                className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                            />
-                        </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Pourcentage salaire</label>
                             <input
@@ -443,7 +451,9 @@ const HistoriqueForm: React.FC<{
                                 min="0"
                                 max="100"
                                 value={formData.pourcentageSalaire}
-                                onChange={(e) => setFormData({ ...formData, pourcentageSalaire: parseFloat(e.target.value) })}
+                                onChange={(e) =>
+                                    setFormData({ ...formData, pourcentageSalaire: parseFloat(e.target.value) })
+                                }
                                 className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                             />
                         </div>
@@ -451,24 +461,25 @@ const HistoriqueForm: React.FC<{
                             <label className="block text-sm font-medium text-gray-700">Salaire base 100%</label>
                             <input
                                 type="number"
+                                min="0"
                                 value={formData.salaireBase100}
-                                onChange={(e) => setFormData({ ...formData, salaireBase100: parseFloat(e.target.value) })}
+                                onChange={(e) =>
+                                    setFormData({ ...formData, salaireBase100: parseFloat(e.target.value) })
+                                }
                                 className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                             />
                         </div>
                     </div>
-                    <div className="flex justify-end space-x-3">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-                        >
+
+                    <div className="text-gray-700 text-sm">
+                        Salaire plein temps calculé automatiquement: <strong>{(formData.salairePleinTemps ?? 0).toLocaleString()} MGA</strong>
+                    </div>
+
+                    <div className="flex justify-end space-x-2 mt-4">
+                        <button type="button" onClick={onClose} className="px-4 py-2 rounded-md bg-gray-300 hover:bg-gray-400">
                             Annuler
                         </button>
-                        <button
-                            type="submit"
-                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                        >
+                        <button type="submit" className="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700">
                             Enregistrer
                         </button>
                     </div>
