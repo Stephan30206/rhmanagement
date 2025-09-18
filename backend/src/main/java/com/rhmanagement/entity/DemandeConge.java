@@ -55,6 +55,10 @@ public class DemandeConge {
     @Column(name = "jours_demandes", insertable = false, updatable = false)
     private Integer joursDemandes;
 
+    public Object getNombreJours() {
+        return null;
+    }
+
     // Enum pour le statut
     public enum StatutDemande {
         EN_ATTENTE, APPROUVE, REJETE, ANNULE

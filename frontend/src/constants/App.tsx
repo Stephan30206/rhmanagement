@@ -136,6 +136,8 @@ function App() {
         setShowRegister(false);
     };
 
+
+
     // Modifiez votre useEffect pour checkAuth
     useEffect(() => {
         const initAuth = async () => {
@@ -873,6 +875,15 @@ function App() {
             }
         };
 
+        const calculateDays = (dateDebut: string, dateFin: string): number => {
+            if (!dateDebut || !dateFin) return 0;
+
+            const debut = new Date(dateDebut);
+            const fin = new Date(dateFin);
+            const timeDiff = fin.getTime() - debut.getTime();
+            return Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1;
+        };
+
         const formatStatut = (statut: string) => {
             switch (statut) {
                 case 'EN_ATTENTE':
@@ -980,7 +991,7 @@ function App() {
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            {demande.typeConge?.nom || 'N/A'}
+                                            {demande.typeConge || 'Non spécifié'} {/* Afficher le type de congé */}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                             {demande.dateDebut && demande.dateFin ? (
@@ -988,8 +999,8 @@ function App() {
                                                     {new Date(demande.dateDebut).toLocaleDateString('fr-FR')} - {new Date(demande.dateFin).toLocaleDateString('fr-FR')}
                                                     <br/>
                                                     <span className="text-xs text-gray-500">
-                            ({demande.joursDemandes || 0} jours)
-                          </span>
+                ({calculateDays(demande.dateDebut, demande.dateFin)} jours) {/* Calculer les jours */}
+            </span>
                                                 </>
                                             ) : 'N/A'}
                                         </td>

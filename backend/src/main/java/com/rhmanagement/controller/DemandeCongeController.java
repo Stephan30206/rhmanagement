@@ -202,4 +202,15 @@ public class DemandeCongeController {
         List<DemandeConge> demandes = demandeCongeService.getDemandesByEmployeId(employeId);
         return ResponseEntity.ok(demandes);
     }
+
+    // Récupérer le solde de congé disponible
+    @GetMapping("/solde/{employeId}")
+    public ResponseEntity<Integer> getSoldeConge(@PathVariable Long employeId) {
+        try {
+            int solde = demandeCongeService.getSoldeCongeDisponible(employeId);
+            return ResponseEntity.ok(solde);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(25); // Retourne 25 par défaut en cas d'erreur
+        }
+    }
 }

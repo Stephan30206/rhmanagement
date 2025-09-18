@@ -309,6 +309,32 @@ public class DemandeCongeService {
         }).collect(Collectors.toList());
     }
 
+    public int getSoldeCongeDisponible(Long employeId) {
+        // Solde annuel fixe de 25 jours
+        int soldeAnnuel = 25;
+
+        // Calculer les jours déjà pris (seulement les demandes approuvées)
+        List<DemandeConge> demandesApprouvees = demandeCongeRepository.findByEmployeIdAndStatut(
+                employeId, DemandeConge.StatutDemande.APPROUVE);
+
+        int totalJoursPris = demandesApprouvees.stream()
+                .mapToInt(demande -> {
+                    if (demande.getJoursDemandes() != null) {
+                        return demande.getJoursDemandes();
+                    } else {
+                        // Calculer les jours si non définis
+                        return (int) ChronoUnit.DAYS.between(
+                                demande.getDateDebut(),
+                                demande.getDateFin()
+                        ) + 1;
+                    }
+                })
+                .sum();
+
+        return soldeAnnuel - totalJoursPris;
+    }
+
+
     public Map<String, Object> getDemandeDetails(Long id) {
         Optional<DemandeConge> demandeOpt = demandeCongeRepository.findById(id);
         if (demandeOpt.isEmpty()) {

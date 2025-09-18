@@ -19,6 +19,7 @@ export interface AffectationPastorale {
 }
 
 export interface Employe {
+    soldeConges?: number;
     numeroCNAPS: string;
     nombreEnfants: number;
     dateNaissanceConjoint: string;
@@ -518,6 +519,11 @@ export const demandeCongeService = {
         return response.data;
     },
 
+    getSoldeConge: async (employeId: number): Promise<number> => {
+        const response = await api.get(`/demandes-conge/solde/${employeId}`);
+        return response.data;
+    },
+
     // Méthodes supplémentaires utiles
     getByStatut: async (statut: DemandeConge['statut']): Promise<DemandeConge[]> => {
         const response = await api.get(`/demandes-conge/statut/${statut}`);
@@ -528,11 +534,6 @@ export const demandeCongeService = {
         const response = await api.get(`/demandes-conge/periode?dateDebut=${dateDebut}&dateFin=${dateFin}`);
         return response.data;
     },
-
-    getSoldeConge: async (employeId: number, typeCongeId: number): Promise<number> => {
-        const response = await api.get(`/demandes-conge/solde/${employeId}/${typeCongeId}`);
-        return response.data;
-    }
 };
 
 // Service pour les absences

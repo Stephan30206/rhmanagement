@@ -41,7 +41,6 @@ public interface DemandeCongeRepository extends JpaRepository<DemandeConge, Long
     @Query("SELECT d.statut, COUNT(d) FROM DemandeConge d WHERE d.annee = :annee GROUP BY d.statut")
     List<Object[]> countDemandesByStatutAndAnnee(@Param("annee") Integer annee);
 
-
     @Query("SELECT CASE WHEN COUNT(d) > 0 THEN true ELSE false END FROM DemandeConge d WHERE " +
             "d.employeId = :employeId AND d.statut = 'APPROUVE' AND " +
             ":date BETWEEN d.dateDebut AND d.dateFin")
@@ -54,4 +53,10 @@ public interface DemandeCongeRepository extends JpaRepository<DemandeConge, Long
     @Query("SELECT d FROM DemandeConge d WHERE d.statut = 'APPROUVE' AND " +
             "d.dateDebut BETWEEN CURRENT_DATE AND :dateLimite")
     List<DemandeConge> findDemandesCommencantBientot(@Param("dateLimite") LocalDate dateLimite);
+
+
+    @Query("SELECT d FROM DemandeConge d WHERE d.employeId = :employeId AND d.statut = :statut")
+    List<DemandeConge> findByEmployeIdAndStatut(
+            @Param("employeId") Long employeId,
+            @Param("statut") DemandeConge.StatutDemande statut);
 }
