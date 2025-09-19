@@ -1,8 +1,7 @@
 package com.rhmanagement.entity;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -10,6 +9,9 @@ import java.time.temporal.ChronoUnit;
 
 @Getter
 @Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 @Entity
 @Table(name = "demandesconge")
 public class DemandeConge {
@@ -54,10 +56,6 @@ public class DemandeConge {
 
     @Column(name = "jours_demandes", insertable = false, updatable = false)
     private Integer joursDemandes;
-
-    public Object getNombreJours() {
-        return null;
-    }
 
     // Enum pour le statut
     public enum StatutDemande {

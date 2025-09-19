@@ -1,9 +1,7 @@
 package com.rhmanagement.entity;
 
 import jakarta.persistence.*;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
+import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -11,8 +9,11 @@ import java.time.LocalDate;
 @Entity
 @Table(name = "historique_poste")
 @Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class HistoriquePoste {
 
     @Id

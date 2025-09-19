@@ -61,7 +61,8 @@
 		<dependency>
 			<groupId>org.projectlombok</groupId>
 			<artifactId>lombok</artifactId>
-			<optional>true</optional>
+			<version>1.18.30</version> <!-- ou la version la plus récente -->
+			<scope>provided</scope>
 		</dependency>
 
 		<!-- JWT pour l'authentification -->

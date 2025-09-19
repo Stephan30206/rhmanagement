@@ -1,9 +1,7 @@
 package com.rhmanagement.entity;
 
 import jakarta.persistence.*;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
+import lombok.*;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import java.time.LocalDate;
@@ -13,8 +11,11 @@ import java.time.format.DateTimeParseException;
 @Entity
 @Table(name = "competences")
 @Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class Competence {
 
     @Id
