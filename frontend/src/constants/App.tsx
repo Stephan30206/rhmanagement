@@ -28,7 +28,8 @@ import {
     Camera,
     Search
 } from 'lucide-react'
-import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
+
 
 import EmployeForm from "../components/EmployeForm.tsx";
 import EmployeDetails from "../components/EmployeDetails.tsx";
@@ -471,7 +472,6 @@ function App() {
         const employesActifs = safeEmployes.filter(e => e.statut === 'ACTIF').length;
         const employesInactifs = safeEmployes.filter(e => e.statut === 'INACTIF').length;
         const employesEnConge = safeEmployes.filter(e => e.statut === 'EN_CONGE').length;
-        const employesRecents = safeEmployes.slice(0, 3);
         const postes = [...new Set(safeEmployes.map(e => e.poste).filter(Boolean))];
 
         return (
@@ -546,75 +546,173 @@ function App() {
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div className="bg-white shadow rounded-lg p-6">
-                            <h3 className="text-lg font-medium text-gray-900 mb-4">Employés récents</h3>
-                            <div className="space-y-4">
-                                {employesRecents.length > 0 ? employesRecents.map(employe => (
-                                    <div key={employe.id} className="flex items-center">
-                                        {employe.photoProfil ? (
-                                            <img
-                                                src={`http://localhost:8080/uploads/${employe.photoProfil}`}
-                                                alt={`${employe.prenom} ${employe.nom}`}
-                                                className="h-10 w-10 rounded-full object-cover mr-3"
+                        {/* Diagramme par statut - Version contractée */}
+                        <div className="bg-white rounded-lg shadow-md p-6 border border-gray-100">
+                            <h3 className="text-xl font-semibold text-gray-800 mb-5 flex items-center">
+                                <svg className="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                Répartition par statut
+                            </h3>
+
+                            {safeEmployes.length > 0 ? (
+                                <div className="relative">
+                                    <ResponsiveContainer width="100%" height={250}>
+                                        <BarChart
+                                            data={[
+                                                { name: "Actifs", value: employesActifs, color: "#10B981" },
+                                                { name: "Inactifs", value: employesInactifs, color: "#EF4444" },
+                                                { name: "En congé", value: employesEnConge, color: "#F59E0B" }
+                                            ]}
+                                            margin={{ top: 15, right: 20, left: 15, bottom: 10 }}
+                                        >
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#EEE" />
+                                            <XAxis
+                                                dataKey="name"
+                                                tick={{ fill: '#4B5563', fontSize: 11 }}
+                                                axisLine={false}
+                                                tickLine={false}
                                             />
-                                        ) : (
-                                            <div
-                                                className="flex-shrink-0 h-10 w-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold mr-3">
-                                                {(employe.prenom?.[0] || '') + (employe.nom?.[0] || '')}
-                                            </div>
-                                        )}
-                                        <div className="ml-4">
-                                            <h4 className="text-sm font-medium text-gray-900">{employe.prenom} {employe.nom}</h4>
-                                            <p className="text-sm text-gray-500">{employe.poste?.replace('_', ' ')}</p>
-                                        </div>
-                                        <div className="ml-auto">
-                                            <span
-                                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                                    employe.statut === 'ACTIF' ? 'bg-green-100 text-green-800' :
-                                                        employe.statut === 'INACTIF' ? 'bg-red-100 text-red-800' :
-                                                            'bg-yellow-100 text-yellow-800'
-                                                }`}>
-                                                {employe.statut}
-                                            </span>
-                                        </div>
+                                            <YAxis
+                                                tick={{ fill: '#4B5563', fontSize: 11 }}
+                                                axisLine={false}
+                                                tickLine={false}
+                                            />
+                                            <Tooltip
+                                                cursor={{ fill: '#F3F4F6' }}
+                                                contentStyle={{
+                                                    borderRadius: '8px',
+                                                    border: '1px solid #E5E7EB',
+                                                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                                                    fontSize: '12px'
+                                                }}
+                                                formatter={(value, name) => [`${value} employés`, name]}
+                                            />
+                                            <Bar
+                                                dataKey="value"
+                                                name="Nombre d'employés"
+                                                radius={[4, 4, 0, 0]}
+                                            >
+                                                {[
+                                                    { name: "Actifs", value: employesActifs, color: "#10B981" },
+                                                    { name: "Inactifs", value: employesInactifs, color: "#EF4444" },
+                                                    { name: "En congé", value: employesEnConge, color: "#F59E0B" }
+                                                ].map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={entry.color} />
+                                                ))}
+                                            </Bar>
+                                        </BarChart>
+                                    </ResponsiveContainer>
+
+                                    {/* Légende compacte avec pourcentages */}
+                                    <div className="flex flex-wrap justify-center mt-3 gap-3">
+                                        {[
+                                            { label: "Actifs", value: employesActifs, color: "#10B981" },
+                                            { label: "Inactifs", value: employesInactifs, color: "#EF4444" },
+                                            { label: "En congé", value: employesEnConge, color: "#F59E0B" }
+                                        ].map((item, index) => {
+                                            const percentage = safeEmployes.length > 0
+                                                ? ((item.value / safeEmployes.length) * 100).toFixed(1)
+                                                : 0;
+
+                                            return (
+                                                <div key={index} className="flex items-center">
+                                                    <div className="w-2.5 h-2.5 rounded-full mr-1.5" style={{ backgroundColor: item.color }}></div>
+                                                    <span className="text-xs text-gray-600">{item.label}: <span className="font-medium">{item.value}</span> ({percentage}%)</span>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
-                                )) : (
-                                    <p className="text-sm text-gray-500">Aucun employé trouvé</p>
-                                )}
-                            </div>
+                                </div>
+                            ) : (
+                                <div className="flex flex-col items-center justify-center h-52 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                                    <svg className="h-12 w-12 text-gray-400 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                    </svg>
+                                    <p className="text-gray-500 text-center text-sm font-medium">Aucune donnée disponible</p>
+                                    <p className="text-xs text-gray-400 mt-1 text-center max-w-xs">
+                                        Ajoutez des employés pour voir les statistiques
+                                    </p>
+                                </div>
+                            )}
                         </div>
 
-                        <div className="bg-white shadow rounded-lg p-6">
-                            <h3 className="text-lg font-medium text-gray-900 mb-4">Statistiques des postes</h3>
+                        {/* Diagramme par poste - Version élargie */}
+                        <div className="bg-white shadow-lg rounded-xl p-6 border border-gray-100">
+                            <h3 className="text-xl font-semibold text-gray-800 mb-5 flex items-center">
+                                <svg className="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                Répartition par poste
+                            </h3>
+
                             {postes.length > 0 ? (
-                                <ResponsiveContainer width="100%" height={300}>
-                                    <PieChart>
-                                        <Pie
-                                            data={postes.map(poste => {
-                                                const count = safeEmployes.filter(e => e.poste === poste).length;
-                                                return { name: poste?.replace('_', ' '), value: count };
-                                            })}
-                                            dataKey="value"
-                                            nameKey="name"
-                                            cx="50%"
-                                            cy="50%"
-                                            outerRadius={100}
-                                            fill="#3B82F6"
-                                            label
-                                        >
-                                            {postes.map((poste, index) => (
-                                                <Cell
-                                                    key={`cell-${poste}`}
-                                                    fill={["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#6366F1", "#14B8A6"][index % 6]}
+                                <div className="flex items-center justify-center">
+                                    <div className="relative" style={{ width: '100%', height: '320px' }}>
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <PieChart>
+                                                <Pie
+                                                    data={postes.map(poste => {
+                                                        const count = safeEmployes.filter(e => e.poste === poste).length;
+                                                        return {
+                                                            name: poste?.replace('_', ' '),
+                                                            value: count,
+                                                            percentage: safeEmployes.length > 0 ? ((count / safeEmployes.length) * 100).toFixed(1) : 0
+                                                        };
+                                                    })}
+                                                    dataKey="value"
+                                                    nameKey="name"
+                                                    cx="50%"
+                                                    cy="50%"
+                                                    innerRadius={75}
+                                                    outerRadius={110}
+                                                    label={({ name, percentage }) => `${name} (${percentage}%)`}
+                                                    labelLine={false}
+                                                >
+                                                    {postes.map((poste, index) => (
+                                                        <Cell
+                                                            key={`cell-${poste}`}
+                                                            fill={["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#6366F1", "#14B8A6", "#8B5CF6", "#EC4899"][index % 8]}
+                                                        />
+                                                    ))}
+                                                </Pie>
+                                                <Tooltip
+                                                    formatter={(value, name, props) => [`${value} employés (${props.payload.percentage}%)`, name]}
+                                                    contentStyle={{
+                                                        borderRadius: '8px',
+                                                        border: '1px solid #E5E7EB',
+                                                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                                    }}
                                                 />
-                                            ))}
-                                        </Pie>
-                                        <Tooltip />
-                                        <Legend />
-                                    </PieChart>
-                                </ResponsiveContainer>
+                                                <Legend
+                                                    verticalAlign="bottom"
+                                                    height={40}
+                                                    iconType="circle"
+                                                    iconSize={10}
+                                                    formatter={(value, entry, index) => (
+                                                        <span className="text-xs text-gray-600">{value}</span>
+                                                    )}
+                                                />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+
+                                        {/* Affichage du total au centre de l'anneau */}
+                                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                            <div className="text-3xl font-bold text-gray-800">{safeEmployes.length}</div>
+                                            <div className="text-sm text-gray-500 mt-1">Total employés</div>
+                                        </div>
+                                    </div>
+                                </div>
                             ) : (
-                                <p className="text-sm text-gray-500">Aucune statistique disponible</p>
+                                <div className="flex flex-col items-center justify-center h-64 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                                    <svg className="h-16 w-16 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                    </svg>
+                                    <p className="text-gray-500 text-center font-medium">Aucune donnée disponible</p>
+                                    <p className="text-sm text-gray-400 mt-1 text-center max-w-xs">
+                                        Ajoutez des postes pour voir les statistiques
+                                    </p>
+                                </div>
                             )}
                         </div>
                     </div>
