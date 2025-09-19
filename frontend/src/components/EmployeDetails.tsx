@@ -341,7 +341,7 @@ const EmployeDetails: React.FC<EmployeDetailsProps> = ({ employe, onClose, onEdi
                     {diplomes.length > 0 ? (
                         <div className="space-y-3">
                             {diplomes.map((diplome, index) => (
-                                <div key={index} className="bg-gray-50 p-4 rounded-md border-l-4 border-blue-500">
+                                <div key={index} className="bg-gray-50 p-4 ">
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                                         <div>
                                             <label className="text-sm font-medium text-gray-500">Type</label>

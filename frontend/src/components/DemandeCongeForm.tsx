@@ -404,18 +404,19 @@ const DemandeCongeForm: React.FC<DemandeCongeFormProps> = ({
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700">Durée</label>
-                                <p className="mt-1 text-sm text-gray-900">
-                                    {joursDemandes} jour{joursDemandes !== 1 ? 's' : ''}
-                                </p>
-                            </div>
-
-                            <div>
                                 <label className="block text-sm font-medium text-gray-700">Solde disponible actuel</label>
                                 <p className="mt-1 text-sm text-gray-900">
                                     {soldeActuel} jour{soldeActuel !== 1 ? 's' : ''}
                                 </p>
                             </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Durée demandée</label>
+                                <p className="mt-1 text-sm text-gray-900">
+                                    {joursDemandes} jour{joursDemandes !== 1 ? 's' : ''}
+                                </p>
+                            </div>
+
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">Reste après cette demande</label>
                                 <p className="mt-1 text-sm text-gray-900">
