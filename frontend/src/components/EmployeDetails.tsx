@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Edit, Mail, Phone, MapPin, User, Briefcase, Download, History, GraduationCap, Users, Shield, Calendar } from 'lucide-react';
-import { type Employe, employeService } from '../services/api';
+import { X, Edit, Mail, Phone, MapPin, User, Briefcase, Download, History, GraduationCap, Users, Shield, Calendar, AlertCircle } from 'lucide-react';
+import { type Employe, employeService, demandeCongeService } from '../services/api';
 import CarrierePastorale from "./CarrierePastorale.tsx";
 
 interface EmployeDetailsProps {
@@ -15,12 +15,71 @@ const EmployeDetails: React.FC<EmployeDetailsProps> = ({ employe, onClose, onEdi
     const [enfants, setEnfants] = useState<any[]>([]);
     const [diplomes, setDiplomes] = useState<any[]>([]);
     const [showHistorique, setShowHistorique] = useState(false);
+    const [hasCongeActif, setHasCongeActif] = useState(false);
+    const [congeActifInfo, setCongeActifInfo] = useState<any>(null);
+    const [statutReelEmploye, setStatutReelEmploye] = useState<string>('');
+
+    // Fonction pour vérifier le congé actif et mettre à jour le statut automatiquement
+    const verifierEtMettreAJourStatut = async (employeId: number) => {
+        try {
+            const aujourdhui = new Date().toISOString().split('T')[0];
+            const demandes = await demandeCongeService.getByEmployeId(employeId);
+
+            const congeActif = demandes.find(demande =>
+                demande.statut === 'APPROUVE' &&
+                demande.dateDebut <= aujourdhui &&
+                demande.dateFin >= aujourdhui
+            );
+
+            setHasCongeActif(!!congeActif);
+            setCongeActifInfo(congeActif || null);
+
+            // Mettre à jour automatiquement le statut de l'employé
+            if (congeActif && details && details.statut !== 'EN_CONGE') {
+                try {
+                    // Sauvegarder le statut réel avant de le changer
+                    setStatutReelEmploye(details.statut);
+
+                    // Mettre à jour le statut en base de données
+                    const updatedEmploye = await employeService.updateEmploye(employeId, {
+                        statut: 'EN_CONGE'
+                    });
+
+                    // Mettre à jour l'état local
+                    setDetails(prev => prev ? { ...prev, statut: 'EN_CONGE' } : null);
+
+                    console.log('Statut automatiquement mis à jour à EN_CONGE');
+                } catch (error) {
+                    console.error('Erreur mise à jour automatique du statut:', error);
+                }
+            } else if (!congeActif && details && details.statut === 'EN_CONGE') {
+                try {
+                    // Remettre le statut à ACTIF si plus de congé actif
+                    const nouveauStatut = statutReelEmploye || 'ACTIF';
+
+                    const updatedEmploye = await employeService.updateEmploye(employeId, {
+                        statut: nouveauStatut
+                    });
+
+                    // Mettre à jour l'état local
+                    setDetails(prev => prev ? { ...prev, statut: nouveauStatut } : null);
+
+                    console.log(`Statut automatiquement remis à ${nouveauStatut}`);
+                } catch (error) {
+                    console.error('Erreur remise à jour automatique du statut:', error);
+                }
+            }
+        } catch (error) {
+            console.error('Erreur vérification congé actif:', error);
+        }
+    };
 
     useEffect(() => {
         const loadDetails = async () => {
             try {
                 const data = await employeService.getEmployeById(employe.id);
                 setDetails(data);
+                setStatutReelEmploye(data.statut);
 
                 // Charger l'historique professionnel
                 const historiqueData = await employeService.getHistorique(employe.id);
@@ -34,6 +93,9 @@ const EmployeDetails: React.FC<EmployeDetailsProps> = ({ employe, onClose, onEdi
                 const diplomesData = await employeService.getDiplomes(employe.id);
                 console.log('Diplômes chargés:', diplomesData);
                 setDiplomes(diplomesData);
+
+                // Vérifier et mettre à jour le statut de congé
+                await verifierEtMettreAJourStatut(employe.id);
             } catch (error) {
                 console.error('Erreur lors du chargement des détails:', error);
             }
@@ -41,6 +103,17 @@ const EmployeDetails: React.FC<EmployeDetailsProps> = ({ employe, onClose, onEdi
 
         loadDetails();
     }, [employe.id]);
+
+    // Vérifier périodiquement le statut de congé (toutes les minutes)
+    useEffect(() => {
+        const interval = setInterval(() => {
+            if (employe?.id) {
+                verifierEtMettreAJourStatut(employe.id);
+            }
+        }, 60000); // 60 secondes
+
+        return () => clearInterval(interval);
+    }, [employe?.id, details]);
 
     const handlePrint = () => {
         window.print();
@@ -156,6 +229,28 @@ const EmployeDetails: React.FC<EmployeDetailsProps> = ({ employe, onClose, onEdi
                     </div>
                 )}
             </div>
+
+            {/* Alerte de congé actif */}
+            {hasCongeActif && congeActifInfo && (
+                <div className="mx-6 mb-6 bg-yellow-50 border-l-4 border-yellow-400 p-4">
+                    <div className="flex items-center">
+                        <AlertCircle className="h-5 w-5 text-yellow-400 mr-3" />
+                        <div className="flex-1">
+                            <h3 className="text-sm font-medium text-yellow-800">
+                                Congé en cours - Statut automatiquement défini
+                            </h3>
+                            <div className="mt-2 text-sm text-yellow-700">
+                                <p><strong>Type:</strong> {congeActifInfo.typeConge || 'Non spécifié'}</p>
+                                <p><strong>Période:</strong> du {formatDate(congeActifInfo.dateDebut)} au {formatDate(congeActifInfo.dateFin)}</p>
+                                <p><strong>Motif:</strong> {congeActifInfo.motif || 'Non spécifié'}</p>
+                            </div>
+                            <div className="mt-2 text-xs text-yellow-600">
+                                Le statut "EN_CONGE" a été automatiquement appliqué en raison de ce congé actif.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Historique professionnel */}
             {showHistorique && (
@@ -277,8 +372,7 @@ const EmployeDetails: React.FC<EmployeDetailsProps> = ({ employe, onClose, onEdi
                                     ))}
                                 </div>
                             </div>
-                        )
-                        }
+                        )}
                     </div>
                 )}
 
@@ -341,7 +435,7 @@ const EmployeDetails: React.FC<EmployeDetailsProps> = ({ employe, onClose, onEdi
                     {diplomes.length > 0 ? (
                         <div className="space-y-3">
                             {diplomes.map((diplome, index) => (
-                                <div key={index} className="bg-gray-50 p-4 ">
+                                <div key={index} className="bg-gray-50 p-4 rounded-md">
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                                         <div>
                                             <label className="text-sm font-medium text-gray-500">Type</label>
@@ -368,11 +462,12 @@ const EmployeDetails: React.FC<EmployeDetailsProps> = ({ employe, onClose, onEdi
                     )}
                 </div>
 
-                {employe.poste.includes('PASTEUR') || employe.poste.includes('EVANGELISTE') || employe.poste.includes('MISSIONNAIRE') ? (
+                {/* Carrière pastorale */}
+                {(employe.poste.includes('PASTEUR') || employe.poste.includes('EVANGELISTE') || employe.poste.includes('MISSIONNAIRE')) && (
                     <div className="mt-6">
                         <CarrierePastorale employe={employe} />
                     </div>
-                ) : null}
+                )}
 
                 {/* Informations professionnelles */}
                 <div>
@@ -387,9 +482,17 @@ const EmployeDetails: React.FC<EmployeDetailsProps> = ({ employe, onClose, onEdi
                         </div>
                         <div>
                             <label className="text-sm font-medium text-gray-500">Statut</label>
-                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(details.statut)}`}>
-                                {details.statut}
-                            </span>
+                            <div className="flex items-center">
+                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(details.statut)}`}>
+                                    {details.statut}
+                                </span>
+                                {hasCongeActif && (
+                                    <span className="ml-2 flex items-center text-xs text-yellow-600" title="Statut automatique dû au congé en cours">
+                                        <Calendar className="w-3 h-3 mr-1" />
+                                        Auto
+                                    </span>
+                                )}
+                            </div>
                         </div>
                         <div>
                             <label className="text-sm font-medium text-gray-500">Type de contrat</label>
@@ -445,14 +548,17 @@ const EmployeDetails: React.FC<EmployeDetailsProps> = ({ employe, onClose, onEdi
                 </div>
 
                 {/* Affectation actuelle */}
-                {details.affectationActuelle && (
-                    <div>
-                        <h3 className="text-lg font-medium text-gray-900 mb-4">
-                            Affectation actuelle
-                        </h3>
-                        <p className="text-gray-900 bg-gray-50 p-3 rounded-md">{details.affectationActuelle}</p>
+                <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700">Affectation actuelle</label>
+                    <div className="mt-1 p-2 bg-gray-100 rounded-md">
+                        <p className="text-gray-800">
+                            {details.affectationActuelle || "Aucune affectation enregistrée"}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                            Calculée automatiquement à partir des affectations pastorales
+                        </p>
                     </div>
-                )}
+                </div>
             </div>
 
             {/* Footer */}

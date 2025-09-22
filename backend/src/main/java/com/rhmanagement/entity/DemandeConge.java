@@ -1,5 +1,6 @@
 package com.rhmanagement.entity;
 
+import com.fasterxml.jackson.annotation.JacksonInject;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -56,6 +57,12 @@ public class DemandeConge {
 
     @Column(name = "jours_demandes", insertable = false, updatable = false)
     private Integer joursDemandes;
+    // Dans votre entité DemandeConge
+    private String note;
+
+    public JacksonInject.Value getEmploye() {
+        return null;
+    }
 
     // Enum pour le statut
     public enum StatutDemande {

@@ -1,5 +1,7 @@
 import React, {useState, useEffect} from 'react'
 import './styles/App.css'
+import CongesChecker from '../components/CongesChecker';
+import { demandeCongeService } from '../services/api';
 import {
     Users,
     Clock,
@@ -167,20 +169,30 @@ function App() {
         }
     }, []);
 
-// Et modifiez la fonction qui change de page
-    {/*const handlePageChange = (pageId: string) => {
-        setCurrentPage(pageId);
-        setSidebarOpen(false);
-        localStorage.setItem('currentPage', pageId);
-    };*/}
-
     const handleRegister = (userData: any) => {
         setUser(userData);
         setIsAuthenticated(true);
         setShowRegister(false);
     };
 
+    useEffect(() => {
+        if (isAuthenticated && safeEmployes.length > 0) {
+            // Vérification périodique des congés (toutes les heures)
+            const interval = setInterval(() => {
+                safeEmployes.forEach(async (employe) => {
+                    try {
+                        await employeService.updateStatutFromConge(employe.id);
+                    } catch (error) {
+                        console.error(`Erreur mise à jour statut employé ${employe.id}:`, error);
+                    }
+                });
+                // Recharger la liste après mise à jour
+                loadEmployes();
+            }, 60 * 60 * 1000); // 1 heure
 
+            return () => clearInterval(interval);
+        }
+    }, [isAuthenticated, safeEmployes.length]);
 
     // Modifiez votre useEffect pour checkAuth
     useEffect(() => {
@@ -305,12 +317,58 @@ function App() {
         setCurrentPage('dashboard');
     }
 
+// Fonction pour vérifier et mettre à jour automatiquement les statuts de congé
+    const verifierEtMettreAJourStatutConges = async () => {
+        try {
+            const aujourdhui = new Date().toISOString().split('T')[0];
+
+            for (const employe of safeEmployes) {
+                try {
+                    // Récupérer les demandes de congé de l'employé
+                    const demandes = await demandeCongeService.getByEmployeId(employe.id);
+
+                    // Vérifier s'il y a un congé actif
+                    const congeActif = demandes.find(demande =>
+                        demande.statut === 'APPROUVE' &&
+                        demande.dateDebut <= aujourdhui &&
+                        demande.dateFin >= aujourdhui
+                    );
+
+                    // Mettre à jour le statut si nécessaire
+                    if (congeActif && employe.statut !== 'EN_CONGE') {
+                        console.log(`Mise à jour automatique: ${employe.prenom} ${employe.nom} -> EN_CONGE`);
+                        await employeService.updateEmploye(employe.id, {
+                            statut: 'EN_CONGE'
+                        });
+                    } else if (!congeActif && employe.statut === 'EN_CONGE') {
+                        console.log(`Mise à jour automatique: ${employe.prenom} ${employe.nom} -> ACTIF`);
+                        await employeService.updateEmploye(employe.id, {
+                            statut: 'ACTIF'
+                        });
+                    }
+                } catch (employeError) {
+                    console.error(`Erreur pour l'employé ${employe.id}:`, employeError);
+                }
+            }
+        } catch (error) {
+            console.error('Erreur lors de la vérification des congés:', error);
+        }
+    };
+    
+    // Modifiez la fonction loadEmployes existante :
     const loadEmployes = async () => {
         try {
             setLoading(true)
             const data = await employeService.getAllEmployes()
             setEmployes(Array.isArray(data) ? data : [])
             setError('')
+
+            // Vérifier et mettre à jour les statuts de congé après le chargement
+            if (Array.isArray(data) && data.length > 0) {
+                setTimeout(() => {
+                    verifierEtMettreAJourStatutConges();
+                }, 1000); // Petit délai pour éviter trop de requêtes simultanées
+            }
         } catch (err) {
             setError('Erreur lors du chargement des employés')
             setEmployes([])
@@ -319,6 +377,60 @@ function App() {
             setLoading(false)
         }
     }
+
+    // Ajoutez cet useEffect après les autres useEffect existants :
+    useEffect(() => {
+        if (isAuthenticated && safeEmployes.length > 0) {
+            // Vérification périodique des congés (toutes les 5 minutes)
+            const interval = setInterval(() => {
+                verifierEtMettreAJourStatutConges().then(() => {
+                    // Recharger la liste après mise à jour pour refléter les changements
+                    loadEmployes();
+                });
+            }, 5 * 60 * 1000); // 5 minutes
+
+            return () => clearInterval(interval);
+        }
+    }, [isAuthenticated, safeEmployes.length]);
+
+    // Ajoutez aussi cette fonction pour vérifier les congés terminés (optionnel)
+    const verifierCongesTermines = async () => {
+        try {
+            const employesAvecCongesTermines = await employeService.checkCongesTermines();
+
+            if (employesAvecCongesTermines.length > 0) {
+                console.log('Congés terminés détectés:', employesAvecCongesTermines);
+
+                // Mettre à jour les statuts automatiquement
+                for (const emp of employesAvecCongesTermines) {
+                    try {
+                        await employeService.mettreEmployeActif(emp.employeId);
+                    } catch (error) {
+                        console.error(`Erreur mise à jour employé ${emp.employeId}:`, error);
+                    }
+                }
+
+                // Recharger la liste
+                await loadEmployes();
+            }
+        } catch (error) {
+            console.error('Erreur vérification congés terminés:', error);
+        }
+    };
+
+    // Ajoutez cet useEffect pour vérifier les congés terminés au démarrage
+    useEffect(() => {
+        if (isAuthenticated) {
+            // Vérifier immédiatement au chargement
+            setTimeout(() => {
+                verifierCongesTermines();
+            }, 2000);
+
+            // Vérifier toutes les heures
+            const interval = setInterval(verifierCongesTermines, 60 * 60 * 1000);
+            return () => clearInterval(interval);
+        }
+    }, [isAuthenticated]);
 
     const handleDeleteEmploye = async (id: number) => {
         if (window.confirm('Êtes-vous sûr de vouloir supprimer cet employé ?')) {
@@ -415,11 +527,12 @@ function App() {
         </div>
     )
 
+// Dans le composant Header, ajoutez le CongesChecker
     const Header = () => (
         <header className="bg-white shadow-sm lg:static lg:overflow-y-visible">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="relative flex items-center justify-between h-16">
-                    {/* Partie gauche - Menu burger + Barre de recherche */}
+                    {/* Partie gauche - Menu burger */}
                     <div className="flex items-center space-x-4">
                         <button
                             onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -429,8 +542,11 @@ function App() {
                         </button>
                     </div>
 
-                    {/* Partie droite - Notifications + Paramètres + Profil */}
+                    {/* Partie droite - Notifications + Profil */}
                     <div className="flex items-center space-x-4">
+                        {/* Vérificateur de congés */}
+                        <CongesChecker onEmployeUpdate={loadEmployes} />
+
                         {/* Notifications et paramètres */}
                         <div className="hidden lg:flex items-center space-x-2">
                             <button className="p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100" title="Notifications">
@@ -689,7 +805,7 @@ function App() {
                                                     height={40}
                                                     iconType="circle"
                                                     iconSize={10}
-                                                    formatter={(value, entry, index) => (
+                                                    formatter={(value) => (
                                                         <span className="text-xs text-gray-600">{value}</span>
                                                     )}
                                                 />
@@ -787,11 +903,13 @@ function App() {
                                 Nouvel employé
                             </button>
                         </div>
+
                     </div>
 
-                    {/* Formulaire ou détails en haut */}
+                    {/* Section Formulaire et Détails */}
                     {(showEmployeForm || showDetails) && (
                         <div className="bg-white rounded-lg shadow-lg border border-blue-200">
+                            {/* Formulaire de modification/création d'employé */}
                             {showEmployeForm && (
                                 <EmployeForm
                                     employe={editingEmploye}
@@ -799,6 +917,8 @@ function App() {
                                     onSave={handleSave}
                                 />
                             )}
+
+                            {/* Détails de l'employé sélectionné */}
                             {showDetails && selectedEmploye && (
                                 <EmployeDetails
                                     employe={selectedEmploye}
@@ -808,7 +928,6 @@ function App() {
                             )}
                         </div>
                     )}
-
                     {/* Barre de recherche */}
                     <div className="bg-white p-4 rounded-lg shadow">
                         <div className="relative">

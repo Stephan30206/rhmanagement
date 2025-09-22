@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Save, User, Phone, Briefcase, DollarSign, Percent, Upload, Camera, Plus, Trash2, RefreshCw } from 'lucide-react';
-import { type Employe, employeService } from '../services/api';
+import { X, Save, User, Phone, Briefcase, DollarSign, Percent, Upload, Camera, Plus, Trash2, RefreshCw, Calendar } from 'lucide-react';
+import { type Employe, employeService, demandeCongeService } from '../services/api';
 
 interface EmployeFormProps {
     employe?: Employe | null;
@@ -77,6 +77,68 @@ const EmployeForm: React.FC<EmployeFormProps> = ({ employe, onClose, onSave }) =
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [affectationActuelleAuto, setAffectationActuelleAuto] = useState('');
 
+    const [hasCongeActif, setHasCongeActif] = useState(false);
+    const [congeActif, setCongeActif] = useState<any>(null);
+
+    // Fonction pour vérifier et mettre à jour automatiquement le statut de congé
+    /*const verifierEtMettreAJourStatut = async (employeId: number) => {
+        try {
+            const aujourdhui = new Date().toISOString().split('T')[0];
+            const demandes = await demandeCongeService.getByEmployeId(employeId);
+
+            const congeActif = demandes.find(demande =>
+                demande.statut === 'APPROUVE' &&
+                demande.dateDebut <= aujourdhui &&
+                demande.dateFin >= aujourdhui
+            );
+
+            setHasCongeActif(!!congeActif);
+            setCongeActif(congeActif || null);
+
+            // Mettre à jour automatiquement le statut de l'employé
+            if (congeActif && formData.statut !== 'EN_CONGE') {
+                setFormData(prev => ({ ...prev, statut: 'EN_CONGE' }));
+            } else if (!congeActif && formData.statut === 'EN_CONGE') {
+                // Remettre le statut à ACTIF si plus de congé actif
+                setFormData(prev => ({ ...prev, statut: 'ACTIF' }));
+            }
+        } catch (error) {
+            console.error('Erreur vérification congé actif:', error);
+        }
+    };*/
+
+    // Fonction pour vérifier le congé actif
+    const verifierCongeActif = async (employeId: number) => {
+        try {
+            const aujourdhui = new Date().toISOString().split('T')[0];
+            const demandes = await demandeCongeService.getByEmployeId(employeId);
+
+            const congeEnCours = demandes.find(demande =>
+                demande.statut === 'APPROUVE' &&
+                demande.dateDebut <= aujourdhui &&
+                demande.dateFin >= aujourdhui
+            );
+
+            if (congeEnCours) {
+                setCongeActif(congeEnCours);
+                setHasCongeActif(true);
+                // Mettre automatiquement le statut à EN_CONGE si un congé est actif
+                setFormData(prev => ({ ...prev, statut: 'EN_CONGE' }));
+            } else {
+                setCongeActif(null);
+                setHasCongeActif(false);
+                // Si pas de congé actif et statut était EN_CONGE, remettre à ACTIF
+                if (formData.statut === 'EN_CONGE') {
+                    setFormData(prev => ({ ...prev, statut: 'ACTIF' }));
+                }
+            }
+        } catch (error) {
+            console.error('Erreur vérification congé actif:', error);
+            setCongeActif(null);
+            setHasCongeActif(false);
+        }
+    };
+
     // Fonction pour générer un matricule automatique
     const generateMatricule = async () => {
         try {
@@ -106,7 +168,7 @@ const EmployeForm: React.FC<EmployeFormProps> = ({ employe, onClose, onSave }) =
         }
     };
 
-    // Ajouter cet useEffect pour calculer l'affectation actuelle automatiquement
+    // UseEffect pour calculer l'affectation actuelle automatiquement
     useEffect(() => {
         const calculerAffectationActuelle = async () => {
             if (employe?.id) {
@@ -117,17 +179,16 @@ const EmployeForm: React.FC<EmployeFormProps> = ({ employe, onClose, onSave }) =
                     if (response.ok) {
                         const affectations = await response.json();
 
-                        // Trouver l'affectation active (en cours) pour l'année en cours
+                        // Trouver l'affectation active (en cours)
                         const aujourdhui = new Date();
-                        const anneeEnCours = aujourdhui.getFullYear();
 
                         const affectationActive = affectations.find((aff: any) => {
                             const dateDebut = new Date(aff.dateDebut);
                             const dateFin = aff.dateFin ? new Date(aff.dateFin) : null;
 
-                            // Vérifier si l'affectation est active pour l'année en cours
-                            return dateDebut.getFullYear() <= anneeEnCours &&
-                                (!dateFin || dateFin.getFullYear() >= anneeEnCours);
+                            // Vérifier si l'affectation est active actuellement
+                            return dateDebut <= aujourdhui &&
+                                (!dateFin || dateFin >= aujourdhui);
                         });
 
                         if (affectationActive) {
@@ -135,6 +196,8 @@ const EmployeForm: React.FC<EmployeFormProps> = ({ employe, onClose, onSave }) =
                         } else {
                             setAffectationActuelleAuto('Non affecté');
                         }
+                    } else {
+                        setAffectationActuelleAuto('Non affecté');
                     }
                 } catch (error) {
                     console.error('Erreur lors du chargement des affectations:', error);
@@ -200,7 +263,7 @@ const EmployeForm: React.FC<EmployeFormProps> = ({ employe, onClose, onSave }) =
                 superviseurHierarchique: employe.superviseurHierarchique || '',
                 affectationActuelle: employe.affectationActuelle || ''
             });
-            setIsMatriculeAutoGenerated(false); // Pour les modifications, le matricule n'est pas auto-généré
+            setIsMatriculeAutoGenerated(false);
 
             if (employe.photoProfil) {
                 setPhotoPreview(`http://localhost:8080/uploads/${employe.photoProfil}`);
@@ -210,6 +273,8 @@ const EmployeForm: React.FC<EmployeFormProps> = ({ employe, onClose, onSave }) =
             if (employe.id) {
                 loadEnfants(employe.id);
                 loadDiplomes(employe.id);
+                // Vérifier le congé actif
+                verifierCongeActif(employe.id);
             }
         }
     }, [employe]);
@@ -375,6 +440,11 @@ const EmployeForm: React.FC<EmployeFormProps> = ({ employe, onClose, onSave }) =
         setDiplomes(newDiplomes);
     };
 
+    const formatDate = (date: string | undefined) => {
+        if (!date) return 'Non spécifiée';
+        return new Date(date).toLocaleDateString('fr-FR');
+    };
+
     return (
         <div className="bg-white rounded-lg w-full overflow-y-auto border-2 border-blue-500">
             <div className="flex items-center justify-between p-6 border-b">
@@ -390,6 +460,71 @@ const EmployeForm: React.FC<EmployeFormProps> = ({ employe, onClose, onSave }) =
                 {error && (
                     <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
                         {error}
+                    </div>
+                )}
+
+                {hasCongeActif && congeActif && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
+                        <div className="flex items-center">
+                            <Calendar className="w-5 h-5 text-yellow-600 mr-2" />
+                            <h3 className="text-lg font-medium text-yellow-800">Congé en cours</h3>
+                        </div>
+                        <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                            <div>
+                                <span className="text-yellow-700">Type: </span>
+                                <span className="font-medium">{congeActif.typeConge || 'Non spécifié'}</span>
+                            </div>
+                            <div>
+                                <span className="text-yellow-700">Du: </span>
+                                <span className="font-medium">{formatDate(congeActif.dateDebut)}</span>
+                            </div>
+                            <div>
+                                <span className="text-yellow-700">Au: </span>
+                                <span className="font-medium">{formatDate(congeActif.dateFin)}</span>
+                            </div>
+                            <div>
+                                <span className="text-yellow-700">Motif: </span>
+                                <span className="font-medium">{congeActif.motif || 'Non spécifié'}</span>
+                            </div>
+                        </div>
+                        <div className="mt-2">
+                            <p className="text-xs text-yellow-600">
+                                Le statut de l'employé est automatiquement défini sur "EN_CONGE" tant que ce congé est actif.
+                            </p>
+                        </div>
+                    </div>
+                )}
+
+                {/* Affichage du congé actif */}
+                {hasCongeActif && congeActif && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
+                        <div className="flex items-center">
+                            <Calendar className="w-5 h-5 text-yellow-600 mr-2" />
+                            <h3 className="text-lg font-medium text-yellow-800">Congé en cours</h3>
+                        </div>
+                        <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                            <div>
+                                <span className="text-yellow-700">Type: </span>
+                                <span className="font-medium">{congeActif.typeConge || 'Non spécifié'}</span>
+                            </div>
+                            <div>
+                                <span className="text-yellow-700">Du: </span>
+                                <span className="font-medium">{formatDate(congeActif.dateDebut)}</span>
+                            </div>
+                            <div>
+                                <span className="text-yellow-700">Au: </span>
+                                <span className="font-medium">{formatDate(congeActif.dateFin)}</span>
+                            </div>
+                            <div>
+                                <span className="text-yellow-700">Motif: </span>
+                                <span className="font-medium">{congeActif.motif || 'Non spécifié'}</span>
+                            </div>
+                        </div>
+                        <div className="mt-2">
+                            <p className="text-xs text-yellow-600">
+                                Le statut de l'employé est automatiquement défini sur "EN_CONGE" tant que ce congé est actif.
+                            </p>
+                        </div>
                     </div>
                 )}
 
@@ -565,15 +700,6 @@ const EmployeForm: React.FC<EmployeFormProps> = ({ employe, onClose, onSave }) =
                                     <input
                                         type="text"
                                         value={nouvelEnfant.nom}
-                                        onChange={(e) => setNouvelEnfant({...nouvelEnfant, nom: e.target.value})}
-                                        className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700">Date de naissance</label>
-                                    <input
-                                        type="date"
-                                        value={nouvelEnfant.dateNaissance}
                                         onChange={(e) => setNouvelEnfant({...nouvelEnfant, dateNaissance: e.target.value})}
                                         className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                                     />
@@ -818,18 +944,31 @@ const EmployeForm: React.FC<EmployeFormProps> = ({ employe, onClose, onSave }) =
                             </select>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700">Statut *</label>
+                            <label className="block text-sm font-medium text-gray-700">
+                                Statut *
+                                {hasCongeActif && (
+                                    <span className="text-xs text-yellow-600 ml-2">(Automatique: EN_CONGE)</span>
+                                )}
+                            </label>
                             <select
                                 name="statut"
                                 value={formData.statut}
                                 onChange={handleChange}
                                 required
-                                className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                disabled={hasCongeActif}
+                                className={`mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
+                                    hasCongeActif ? 'bg-gray-100 cursor-not-allowed' : ''
+                                }`}
                             >
                                 <option value="ACTIF">Actif</option>
                                 <option value="INACTIF">Inactif</option>
                                 <option value="EN_CONGE">En congé</option>
                             </select>
+                            {hasCongeActif && (
+                                <p className="text-xs text-yellow-600 mt-1">
+                                    Le statut est verrouillé car l'employé a un congé en cours
+                                </p>
+                            )}
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Type de contrat</label>

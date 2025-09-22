@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
-
+export type EmployeStatut = 'ACTIF' | 'INACTIF' | 'EN_CONGE';
 // Add to api.ts
 export interface AffectationPastorale {
     id: number;
@@ -50,7 +50,7 @@ export interface Employe {
     dateFin?: string;
     salaireBase?: number;
     pourcentageSalaire?: number;
-    statut: 'ACTIF' | 'INACTIF' | 'EN_CONGE';
+    statut: EmployeStatut;
     dateAccreditation?: string;
     niveauAccreditation?: string;
     groupeAccreditation?: string;
@@ -367,7 +367,87 @@ export const employeService = {
 
     deleteDocument: async (employeId: number, documentId: number): Promise<void> => {
         await api.delete(`/employes/${employeId}/documents/${documentId}`);
-    }
+    },
+
+    mettreEmployeActif: async (employeId: number): Promise<Employe> => {
+        try {
+            const response = await api.put(`/employes/${employeId}/statut`, {
+                statut: 'ACTIF'
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Erreur mise à jour statut employé:', error);
+            throw error;
+        }
+    },
+
+    updateStatutEmploye: async (employeId: number, nouveauStatut: string) => {
+        try {
+            const response = await api.put(`/employes/${employeId}/statut`, {
+                statut: nouveauStatut
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Erreur mise à jour statut employé:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Obtient les employés dont les congés sont terminés
+     */
+    getEmployesAvecCongesTermines: async () => {
+        try {
+            const response = await api.get('/employes/conges-termines');
+            return response.data;
+        } catch (error) {
+            console.error('Erreur récupération congés terminés:', error);
+            return [];
+        }
+    },
+
+    getStatistiquesSyncConges: async () => {
+        try {
+            const response = await api.get('/admin/conges/statistiques-sync');
+            return response.data;
+        } catch (error) {
+            console.error('Erreur récupération statistiques:', error);
+            throw error;
+        }
+    },
+
+    // Méthode pour vérifier les congés terminés
+    checkCongesTermines: async () => {
+        try {
+            const response = await api.get('/admin/conges/check-conges-termines');
+            return response.data;
+        } catch (error) {
+            console.error('Erreur vérification congés terminés:', error);
+            throw error;
+        }
+    },
+
+// Méthode pour mettre à jour le statut d'un employé
+    updateStatutFromConge: async (employeId: number) => {
+        try {
+            const response = await api.put(`/admin/conges/update-statut/${employeId}`);
+            return response.data;
+        } catch (error) {
+            console.error('Erreur mise à jour statut employé:', error);
+            throw error;
+        }
+    },
+
+    // Dans employeService
+    synchroniserTousLesStatuts: async (): Promise<any> => {
+        try {
+            const response = await api.post('/admin/conges/sync-tous-statuts');
+            return response.data;
+        } catch (error) {
+            console.error('Erreur synchronisation statuts:', error);
+            throw error;
+        }
+    },
 };
 
 // Service pour l'authentification
@@ -540,7 +620,19 @@ export const demandeCongeService = {
         const response = await api.get(`/demandes-conge/periode?dateDebut=${dateDebut}&dateFin=${dateFin}`);
         return response.data;
     },
+
+    getCongesActifs: async (employeId: number): Promise<DemandeConge[]> => {
+        try {
+            const aujourdhui = new Date().toISOString().split('T')[0];
+            const response = await api.get(`/demandes-conge/employe/${employeId}/actifs?date=${aujourdhui}`);
+            return response.data;
+        } catch (error) {
+            console.error('Erreur récupération congés actifs:', error);
+            return [];
+        }
+    }
 };
+
 
 // Service pour les absences
 export const absenceService = {
@@ -721,6 +813,8 @@ export const userService = {
         return response.data;
     }
 };
+
+
 
 
 export default api;

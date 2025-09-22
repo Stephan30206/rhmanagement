@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -20,11 +21,11 @@ public class DemandeCongeController {
     @Autowired
     private DemandeCongeService demandeCongeService;
 
+    // Approuver une demande
     @PutMapping("/{id}/approve")
     public ResponseEntity<Map<String, Object>> approuverDemande(@PathVariable Long id) {
         try {
             // Pour l'instant, utiliser un ID fixe pour l'approbateur
-            // Dans un vrai système, récupérer l'ID de l'utilisateur connecté
             Long approbateurId = 1L;
 
             DemandeConge demandeApprouvee = demandeCongeService.approuverDemande(id, approbateurId);
@@ -88,6 +89,7 @@ public class DemandeCongeController {
         }
     }
 
+    // Récupérer toutes les demandes en attente
     @GetMapping("/pending")
     public ResponseEntity<List<Map<String, Object>>> getDemandesEnAttente() {
         try {
@@ -102,9 +104,8 @@ public class DemandeCongeController {
                 demandeMap.put("motif", demande.getMotif());
                 demandeMap.put("statut", demande.getStatut());
                 demandeMap.put("dateCreation", demande.getDateCreation());
-//                demandeMap.put("joursDemandes", demande.getNombreJours());
 
-                // Ajouter les détails de l'employé et du type de congé comme dans getAllDemandesWithDetails
+                // Ajouter les détails de l'employé et du type de congé
                 Map<String, Object> details = demandeCongeService.getDemandeDetails(demande.getId());
                 if (details != null) {
                     demandeMap.put("employeNom", details.get("employeNom"));
@@ -122,7 +123,7 @@ public class DemandeCongeController {
         }
     }
 
-    // Obtenir les statistiques des demandes
+    // Obtenir les statistiques des demandes par année
     @GetMapping("/statistics/{annee}")
     public ResponseEntity<Map<String, Object>> getStatistiques(@PathVariable Integer annee) {
         try {
@@ -139,26 +140,19 @@ public class DemandeCongeController {
         }
     }
 
-    // Nouveau endpoint avec relations
+    // Récupérer toutes les demandes avec détails
     @GetMapping("/with-details")
     public ResponseEntity<List<Map<String, Object>>> getAllDemandesWithDetails() {
         List<Map<String, Object>> demandes = demandeCongeService.getAllDemandesWithDetails();
         return ResponseEntity.ok(demandes);
     }
 
-    // Modifier la méthode existante pour utiliser les détails
+    // Récupérer toutes les demandes
     @GetMapping
     public ResponseEntity<List<Map<String, Object>>> getAllDemandes() {
         List<Map<String, Object>> demandes = demandeCongeService.getAllDemandesWithDetails();
         return ResponseEntity.ok(demandes);
     }
-
-    // Récupérer toutes les demandes
-//    @GetMapping
-//    public ResponseEntity<List<DemandeConge>> getAllDemandes() {
-//        List<DemandeConge> demandes = demandeCongeService.getAllDemandes();
-//        return ResponseEntity.ok(demandes);
-//    }
 
     // Récupérer une demande par ID
     @GetMapping("/{id}")
@@ -196,7 +190,7 @@ public class DemandeCongeController {
         return ResponseEntity.ok().build();
     }
 
-    // Récupérer les demandes par employé
+    // Récupérer les demandes par employé (une seule méthode conservée)
     @GetMapping("/employe/{employeId}")
     public ResponseEntity<List<DemandeConge>> getDemandesByEmploye(@PathVariable Long employeId) {
         List<DemandeConge> demandes = demandeCongeService.getDemandesByEmployeId(employeId);
@@ -212,5 +206,16 @@ public class DemandeCongeController {
         } catch (Exception e) {
             return ResponseEntity.status(500).body(25); // Retourne 25 par défaut en cas d'erreur
         }
+    }
+
+    // Récupérer les congés actifs d'un employé à une date donnée
+    @GetMapping("/employe/{employeId}/actifs")
+    public ResponseEntity<List<DemandeConge>> getCongesActifs(
+            @PathVariable Long employeId,
+            @RequestParam String date) {
+
+        LocalDate checkDate = LocalDate.parse(date);
+        List<DemandeConge> congesActifs = demandeCongeService.getCongesActifs(employeId, checkDate);
+        return ResponseEntity.ok(congesActifs);
     }
 }

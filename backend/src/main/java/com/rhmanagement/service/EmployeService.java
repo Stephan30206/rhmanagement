@@ -2,7 +2,9 @@ package com.rhmanagement.service;
 
 import com.rhmanagement.entity.Employe;
 import com.rhmanagement.entity.Enfant;
+import com.rhmanagement.entity.DemandeConge;
 import com.rhmanagement.repository.EmployeRepository;
+import com.rhmanagement.repository.DemandeCongeRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -14,10 +16,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.time.LocalDate;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -25,6 +26,9 @@ public class EmployeService {
 
     @Autowired
     private EmployeRepository employeRepository;
+
+    @Autowired
+    private DemandeCongeRepository demandeCongeRepository;
 
     public List<Employe> getAllEmployes() {
         return employeRepository.findAll();
@@ -39,7 +43,6 @@ public class EmployeService {
     }
 
     public Employe saveEmploye(Employe employe) {
-        // Générer un matricule si non fourni
         if (employe.getMatricule() == null || employe.getMatricule().isEmpty()) {
             employe.setMatricule(generateMatricule());
         }
@@ -122,23 +125,18 @@ public class EmployeService {
 
         Employe employe = optionalEmploye.get();
 
-        // Vérifier le répertoire d'upload
         Path uploadPath = Paths.get(uploadDirectory);
         if (!Files.exists(uploadPath)) {
             Files.createDirectories(uploadPath);
-            System.out.println("Répertoire upload créé: " + uploadPath.toAbsolutePath());
         }
 
-        // Supprimer l'ancienne photo si elle existe
         if (employe.getPhotoProfil() != null && !employe.getPhotoProfil().isEmpty()) {
             Path oldPhotoPath = uploadPath.resolve(employe.getPhotoProfil());
             if (Files.exists(oldPhotoPath)) {
                 Files.delete(oldPhotoPath);
-                System.out.println("Ancienne photo supprimée: " + oldPhotoPath);
             }
         }
 
-        // Générer un nom de fichier unique
         String originalFileName = file.getOriginalFilename();
         String fileExtension = "";
         if (originalFileName != null && originalFileName.contains(".")) {
@@ -148,18 +146,12 @@ public class EmployeService {
         String fileName = UUID.randomUUID().toString() + fileExtension;
         Path filePath = uploadPath.resolve(fileName);
 
-        System.out.println("Sauvegarde fichier: " + filePath.toAbsolutePath());
-
-        // Sauvegarder le fichier
         Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
-        // Mettre à jour l'employé
         employe.setPhotoProfil(fileName);
-        Employe savedEmploye = employeRepository.save(employe);
-
-        System.out.println("Photo sauvegardée avec succès: " + fileName);
-        return savedEmploye;
+        return employeRepository.save(employe);
     }
+
     public Employe deletePhoto(Long id) {
         Optional<Employe> optionalEmploye = employeRepository.findById(id);
 
@@ -185,5 +177,82 @@ public class EmployeService {
     public List<Enfant> getEnfantsByEmployeId(Long employeId) {
         Optional<Employe> employe = employeRepository.findById(employeId);
         return employe.map(Employe::getEnfants).orElse(Collections.emptyList());
+    }
+
+    public List<Map<String, Object>> getEmployesAvecCongesTermines() {
+        LocalDate aujourdhui = LocalDate.now();
+
+        // Utilisez la méthode appropriée selon votre implémentation
+        List<Employe> employesEnConge = employeRepository.findByStatut(Employe.StatutEmploye.EN_CONGE);
+
+        return employesEnConge.stream()
+                .filter(employe -> {
+                    List<DemandeConge> demandesApprouvees = demandeCongeRepository.findByEmployeIdAndStatut(
+                            employe.getId(),
+                            DemandeConge.StatutDemande.APPROUVE
+                    );
+
+                    return demandesApprouvees.stream()
+                            .anyMatch(demande -> {
+                                // Supprimez .toLocalDate() car dateFin est déjà un LocalDate
+                                LocalDate dateFin = demande.getDateFin(); // Pas de .toLocalDate() ici
+                                return dateFin.isBefore(aujourdhui) || dateFin.isEqual(aujourdhui);
+                            });
+                })
+                .map(employe -> {
+                    Map<String, Object> result = new HashMap<>();
+                    result.put("employeId", employe.getId());
+                    result.put("employeNom", employe.getPrenom() + " " + employe.getNom());
+                    return result;
+                })
+                .collect(Collectors.toList());
+    }
+
+    public Employe updateStatutEmploye(Long id, String statut) {
+        Employe employe = employeRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Employé non trouvé"));
+        employe.setStatut(Employe.StatutEmploye.valueOf(statut));
+        return employeRepository.save(employe);
+    }
+
+    public int getTotalEmployes() {
+        return Math.toIntExact(employeRepository.count());
+    }
+
+    public int getEmployesEnCongeCount() {
+        return Math.toIntExact(employeRepository.countByStatut(Employe.StatutEmploye.EN_CONGE));
+    }
+
+    public int getIncoherencesStatutCount() {
+        // Employés marqués EN_CONGE mais sans congé actif
+        LocalDate aujourdhui = LocalDate.now();
+        List<Employe> employesEnConge = employeRepository.findByStatut(Employe.StatutEmploye.EN_CONGE);
+
+        int incoherences = 0;
+        for (Employe employe : employesEnConge) {
+            Optional<DemandeConge> congeActif = demandeCongeRepository.findCongeActif(employe.getId(), aujourdhui);
+            if (congeActif.isEmpty()) {
+                incoherences++;
+            }
+        }
+
+        return incoherences;
+    }
+
+    public Employe mettreEmployeActif(Long employeId) {
+        Employe employe = employeRepository.findById(employeId)
+                .orElseThrow(() -> new RuntimeException("Employé non trouvé"));
+
+        // Vérifier si l'employé a encore des congés actifs
+        LocalDate aujourdhui = LocalDate.now();
+        List<DemandeConge> congesActifs = demandeCongeRepository.findCongesActifs(employeId, aujourdhui);
+
+        if (congesActifs.isEmpty()) {
+            // Pas de congés actifs, mettre en ACTIF
+            employe.setStatut(Employe.StatutEmploye.ACTIF);
+            employe = employeRepository.save(employe);
+        }
+
+        return employe;
     }
 }

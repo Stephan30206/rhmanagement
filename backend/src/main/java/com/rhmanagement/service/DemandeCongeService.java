@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.List;
@@ -19,6 +20,9 @@ import java.util.stream.Collectors;
 
 @Service
 public class DemandeCongeService {
+
+    @Autowired
+    private CongeStatusService congeStatusService;
 
     @Autowired
     private DemandeCongeRepository demandeCongeRepository;
@@ -364,5 +368,64 @@ public class DemandeCongeService {
 //        }
 
         return details;
+    }
+
+
+    public List<DemandeConge> getCongesActifs(Long employeId, LocalDate date) {
+        return demandeCongeRepository.findByEmployeIdAndStatut(employeId, DemandeConge.StatutDemande.APPROUVE)
+                .stream()
+                .filter(demande ->
+                        !demande.getDateDebut().isAfter(date) &&
+                                !demande.getDateFin().isBefore(date)
+                )
+                .collect(Collectors.toList());
+    }
+
+    public DemandeConge approuverDemande(int id, Long approvateurId) {
+        DemandeConge demande = demandeCongeRepository.findById((long) id)
+                .orElseThrow(() -> new RuntimeException("Demande non trouvée"));
+
+        demande.setStatut(DemandeConge.StatutDemande.APPROUVE);
+        demande.setApprouvePar(approvateurId);
+        demande.setDateTraitement(LocalDateTime.now());
+
+        DemandeConge savedDemande = demandeCongeRepository.save(demande);
+
+        // Synchroniser automatiquement le statut de l'employé
+        congeStatusService.synchroniserStatutEmploye((Long) demande.getEmploye().getId());
+
+        return savedDemande;
+    }
+
+    public DemandeConge rejeterDemande(Long demandeId, String motifRejet, Long approvateurId) {
+        DemandeConge demande = demandeCongeRepository.findById(demandeId)
+                .orElseThrow(() -> new RuntimeException("Demande non trouvée"));
+
+        demande.setStatut(DemandeConge.StatutDemande.REJETE);
+        demande.setMotifRejet(motifRejet);
+        demande.setApprouvePar(approvateurId);
+        demande.setDateTraitement(LocalDateTime.now());
+
+        DemandeConge savedDemande = demandeCongeRepository.save(demande);
+
+        // Synchroniser le statut (au cas où l'employé était EN_CONGE)
+        congeStatusService.synchroniserStatutEmploye((Long) demande.getEmploye().getId());
+
+        return savedDemande;
+    }
+
+    public void annulerDemande(int id) {
+        DemandeConge demande = demandeCongeRepository.findById((long) id)
+                .orElseThrow(() -> new RuntimeException("Demande non trouvée"));
+
+        demande.setStatut(DemandeConge.StatutDemande.ANNULE);
+        demandeCongeRepository.save(demande);
+
+        // Synchroniser le statut de l'employé
+        congeStatusService.synchroniserStatutEmploye((Long) demande.getEmploye().getId());
+    }
+
+    public int getCongesActifsCount() {
+        return demandeCongeRepository.countCongesActifs(LocalDate.now());
     }
 }

@@ -16,7 +16,7 @@ import java.util.regex.Pattern;
 @Component
 public class PasswordBCryptMigration implements CommandLineRunner {
 
-    private static final Logger log = LoggerFactory.getLogger(PasswordBCryptMigration.class);
+    public static final Logger log = LoggerFactory.getLogger(PasswordBCryptMigration.class);
 
     private final UtilisateurRepository utilisateurRepository;
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();

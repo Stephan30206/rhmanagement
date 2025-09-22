@@ -16,8 +16,6 @@ public interface EmployeRepository extends JpaRepository<Employe, Long> {
 
     Optional<Employe> findByCin(String cin);
 
-    List<Employe> findByStatut(Employe.StatutEmploye statut);
-
     List<Employe> findByPoste(Employe.Poste poste);
 
     // Modifier :search en :query
@@ -30,5 +28,22 @@ public interface EmployeRepository extends JpaRepository<Employe, Long> {
     @Query("SELECT e FROM Employe e WHERE e.poste IN (' EVANGELISTE', 'PASTEUR_STAGIAIRE', 'PASTEUR_AUTORISE', 'PASTEUR_CONSACRE')")
     List<Employe> findAllPasteurs();
 
-    long countByStatut(Employe.StatutEmploye statut);
+
+    List<Employe> findByStatut(String statut);
+
+    List<Employe> findByNomContainingIgnoreCaseOrPrenomContainingIgnoreCase(String nom, String prenom);
+
+    @Query("SELECT e FROM Employe e WHERE e.statut = 'EN_CONGE'")
+    List<Employe> findEmployesEnConge();
+
+    @Query("SELECT e FROM Employe e WHERE e.poste = :poste")
+    List<Employe> findByPoste(@Param("poste") String poste);
+
+    boolean existsByEmail(String email);
+
+    boolean existsByTelephone(String telephone);
+
+    int countByStatut(Employe.StatutEmploye statut);
+    List<Employe> findByStatut(Employe.StatutEmploye statut);
+
 }

@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @RestController
@@ -108,5 +109,17 @@ public class EmployeController {
     @GetMapping("/count/statut/{statut}")
     public long getEmployeCountByStatut(@PathVariable Employe.StatutEmploye statut) {
         return employeService.getEmployeCountByStatut(statut);
+    }
+
+    @GetMapping("/conges-termines")
+    public ResponseEntity<List<Map<String, Object>>> getEmployesAvecCongesTermines() {
+        List<Map<String, Object>> employes = employeService.getEmployesAvecCongesTermines();
+        return ResponseEntity.ok(employes);
+    }
+
+    @PutMapping("/{id}/statut")
+    public ResponseEntity<Employe> updateStatutEmploye(@PathVariable Long id, @RequestBody Map<String, String> statut) {
+        Employe employe = employeService.updateStatutEmploye(id, statut.get("statut"));
+        return ResponseEntity.ok(employe);
     }
 }

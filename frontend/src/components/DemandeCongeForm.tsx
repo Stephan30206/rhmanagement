@@ -216,6 +216,7 @@ const DemandeCongeForm: React.FC<DemandeCongeFormProps> = ({
         return Object.keys(errors).length === 0;
     };
 
+// Dans handleSubmit, après la sauvegarde de la demande
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
@@ -244,6 +245,22 @@ const DemandeCongeForm: React.FC<DemandeCongeFormProps> = ({
                 await demandeCongeService.updateDemandeConge(demande.id, requestData);
             }
 
+            // Mettre à jour le statut de l'employé si la demande est approuvée
+            if (formData.statut === 'APPROUVE') {
+                try {
+                    await employeService.updateEmploye(parseInt(formData.employeId), {
+                        statut: 'EN_CONGE'
+                    });
+
+                    // Afficher une notification
+                    alert(`Le statut de l'employé a été mis à jour: EN CONGÉ`);
+                } catch (employeError) {
+                    console.error('Erreur lors de la mise à jour du statut employé:', employeError);
+                    // Ne pas bloquer le processus principal pour cette erreur
+                    setError('Demande sauvegardée mais erreur lors de la mise à jour du statut employé');
+                }
+            }
+
             onSave();
             onClose();
         } catch (err: any) {
@@ -253,6 +270,7 @@ const DemandeCongeForm: React.FC<DemandeCongeFormProps> = ({
             setLoading(false);
         }
     };
+
 
     const handleDelete = async () => {
         if (!demande?.id || !window.confirm('Êtes-vous sûr de vouloir supprimer cette demande ?')) {
