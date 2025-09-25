@@ -1714,7 +1714,7 @@ function App() {
                                 onClick={() => setIsEditing(true)}
                                 className="bg-blue-900 text-white px-4 py-2 rounded hover:bg-blue-800 flex items-center"
                             >
-                                <User className="w-4 h-4 mr-2" />
+                                <Edit className="w-4 h-4 mr-2" />
                                 Modifier
                             </button>
                         ) : (

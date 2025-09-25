@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, AlertCircle, Upload } from 'lucide-react';
 import api, { absenceService, employeService, typeAbsenceService, type TypeAbsence, type Employe } from '../services/api';
+import CustomDropdown from './CustomDropdown';
 
 interface AbsenceFormProps {
     onClose: () => void;
@@ -46,6 +47,11 @@ const AbsenceForm: React.FC<AbsenceFormProps> = ({ onClose, onSave, absence }) =
 
         loadData();
     }, []);
+
+    const employeOptions = employes.map(employe => ({
+        value: employe.id.toString(),
+        label: `${employe.prenom} ${employe.nom} - ${employe.matricule}`
+    }));
 
     const validateForm = (): boolean => {
         const errors: { [key: string]: string } = {};
@@ -197,23 +203,21 @@ const AbsenceForm: React.FC<AbsenceFormProps> = ({ onClose, onSave, absence }) =
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Employé *
                             </label>
-                            <select
-                                name="employeId"
+                            <CustomDropdown
+                                options={employeOptions}
                                 value={formData.employeId}
-                                onChange={handleChange}
-                                required
-                                className={`w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
-                                    validationErrors.employeId ? 'border-red-500' : 'border-gray-300'
-                                }`}
+                                onChange={(value) => {
+                                    setFormData(prev => ({ ...prev, employeId: value }));
+                                    if (validationErrors.employeId) {
+                                        setValidationErrors(prev => ({ ...prev, employeId: '' }));
+                                    }
+                                }}
+                                placeholder="Sélectionner un employé"
+                                searchPlaceholder="Rechercher un employé..."
                                 disabled={!!absence}
-                            >
-                                <option value="">Sélectionner un employé</option>
-                                {employes.map(employe => (
-                                    <option key={employe.id} value={employe.id}>
-                                        {employe.prenom} {employe.nom} - {employe.matricule}
-                                    </option>
-                                ))}
-                            </select>
+                                error={!!validationErrors.employeId}
+                                className="w-full"
+                            />
                             {validationErrors.employeId && (
                                 <p className="text-red-500 text-sm mt-1">{validationErrors.employeId}</p>
                             )}

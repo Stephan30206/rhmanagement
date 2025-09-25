@@ -102,7 +102,7 @@ const Documents: React.FC = () => {
             setViewingDocument(document);
             setDocumentContent('');
 
-            const response = await fetch(`http://localhost:8080/api/uploads/${document.cheminFichier}`);
+            const response = await fetch(`http://localhost:8080/uploads/${document.cheminFichier}`);
             if (!response.ok) throw new Error('Fichier non trouvé');
 
             const contentType = response.headers.get('content-type');
