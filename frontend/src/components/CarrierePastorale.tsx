@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Calendar, MapPin, Users } from 'lucide-react';
 import type { Employe } from '../services/api';
 import type { AffectationPastorale } from '../services/api';
+import { affectationPastoraleService } from '../services/api';
 
 interface CarrierePastoraleProps {
     employe: Employe;
@@ -23,13 +24,13 @@ const CarrierePastorale: React.FC<CarrierePastoraleProps> = ({ employe }) => {
     const [editingAffectation, setEditingAffectation] = useState<AffectationPastorale | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         loadAffectations();
     }, [employe.id]);
 
-    // Fonction pour déterminer automatiquement le statut basé sur les dates
-    const determineStatut = (dateDebut: string, dateFin: string | null): string => {
+    const determineStatut = (dateFin: string): string => {
         const aujourdhui = new Date();
         const dateFinObj = dateFin ? new Date(dateFin) : null;
 
@@ -42,16 +43,26 @@ const CarrierePastorale: React.FC<CarrierePastoraleProps> = ({ employe }) => {
     const loadAffectations = async () => {
         try {
             setLoading(true);
-            const response = await fetch(`http://localhost:8080/api/affectations-pastorales/pasteur/${employe.id}`);
+            setError(null);
 
-            if (!response.ok) {
-                throw new Error(`Erreur HTTP: ${response.status}`);
+            // ✅ Utiliser le service API au lieu de fetch direct
+            const data = await affectationPastoraleService.getAffectationsByPasteur(employe.id);
+            setAffectations(Array.isArray(data) ? data : []);
+
+        } catch (error: any) {
+            console.error('Erreur lors du chargement des affectations:', error);
+
+            // Gestion d'erreurs plus détaillée
+            if (error.response?.status === 403) {
+                setError('Accès refusé. Vérifiez vos droits d\'accès.');
+            } else if (error.response?.status === 401) {
+                setError('Session expirée. Veuillez vous reconnecter.');
+            } else if (error.response?.status === 404) {
+                setError('Endpoint non trouvé. Vérifiez la configuration du serveur.');
+            } else {
+                setError(error.message || 'Erreur lors du chargement des affectations');
             }
 
-            const data = await response.json();
-            setAffectations(Array.isArray(data) ? data : []);
-        } catch (error) {
-            console.error('Erreur lors du chargement des affectations:', error);
             setAffectations([]);
         } finally {
             setLoading(false);
@@ -71,19 +82,15 @@ const CarrierePastorale: React.FC<CarrierePastoraleProps> = ({ employe }) => {
     const handleDelete = async (id: number) => {
         if (window.confirm('Êtes-vous sûr de vouloir supprimer cette affectation ?')) {
             try {
-                const response = await fetch(`http://localhost:8080/api/affectations-pastorales/${id}`, {
-                    method: 'DELETE'
-                });
-
-                if (response.ok) {
-                    loadAffectations();
-                } else {
-                    const errorData = await response.json();
-                    throw new Error(errorData.message || 'Erreur lors de la suppression');
-                }
+                // ✅ Suppression avec le service API
+                await affectationPastoraleService.deleteAffectation(id);
+                loadAffectations();
             } catch (error: any) {
                 console.error('Erreur lors de la suppression:', error);
-                alert(error.message || 'Erreur lors de la suppression de l\'affectation');
+                const message = error.response?.data?.message ||
+                    error.message ||
+                    'Erreur lors de la suppression de l\'affectation';
+                alert(message);
             }
         }
     };
@@ -92,59 +99,50 @@ const CarrierePastorale: React.FC<CarrierePastoraleProps> = ({ employe }) => {
         try {
             setSaving(true);
 
-            // Déterminer automatiquement le statut basé sur la date de fin
-            const statutAuto = determineStatut(affectationData.dateDebut, affectationData.dateFin || null);
+            const statutAuto = determineStatut(affectationData.dateDebut);
 
-            // Préparer les données pour l'API
             const requestData = {
                 district: affectationData.district,
                 dateDebut: affectationData.dateDebut,
                 dateFin: affectationData.dateFin || null,
                 fonction: affectationData.fonction,
-                statut: statutAuto, // Utiliser le statut déterminé automatiquement
+                statut: statutAuto,
                 lettreAffectation: affectationData.lettreAffectation || null,
                 observations: affectationData.observations || null,
                 pasteur: { id: employe.id }
             };
 
-            console.log('Données envoyées au backend:', requestData);
+            let savedAffectation;
 
-            const url = editingAffectation
-                ? `http://localhost:8080/api/affectations-pastorales/${editingAffectation.id}`
-                : 'http://localhost:8080/api/affectations-pastorales';
-
-            const method = editingAffectation ? 'PUT' : 'POST';
-
-            const response = await fetch(url, {
-                method: method,
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(requestData)
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || `Erreur HTTP: ${response.status}`);
+            if (editingAffectation) {
+                // ✅ Modification avec le service API
+                savedAffectation = await affectationPastoraleService.updateAffectation(
+                    editingAffectation.id,
+                    requestData
+                );
+            } else {
+                // ✅ Création avec le service API
+                savedAffectation = await affectationPastoraleService.createAffectation(requestData);
             }
 
-            const savedAffectation = await response.json();
             console.log('Affectation sauvegardée:', savedAffectation);
-
             setShowForm(false);
             setEditingAffectation(null);
             loadAffectations();
 
         } catch (error: any) {
             console.error('Erreur détaillée lors de la sauvegarde:', error);
-            alert(error.message || 'Erreur lors de la sauvegarde de l\'affectation');
+
+            const message = error.response?.data?.message ||
+                error.message ||
+                'Erreur lors de la sauvegarde de l\'affectation';
+            alert(message);
         } finally {
             setSaving(false);
         }
     };
 
-    // Fonction pour formater la période avec indication si terminée
-    const formatPeriode = (dateDebut: string, dateFin: string | null) => {
+    const formatPeriode = (dateDebut: string, dateFin: string | undefined) => {
         const aujourdhui = new Date();
         const dateFinObj = dateFin ? new Date(dateFin) : null;
         const estTerminee = dateFinObj && dateFinObj < aujourdhui;
@@ -161,6 +159,48 @@ const CarrierePastorale: React.FC<CarrierePastoraleProps> = ({ employe }) => {
         return (
             <div className="flex justify-center items-center py-12">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                    <div>
+                        <h3 className="text-2xl font-bold text-gray-900">Carrière Pastorale</h3>
+                        <p className="text-sm text-gray-600 mt-1">
+                            {employe.prenom} {employe.nom} - {employe.poste?.replace('_', ' ')}
+                        </p>
+                    </div>
+                    <button
+                        onClick={handleCreate}
+                        className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                    >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Nouvelle affectation
+                    </button>
+                </div>
+
+                <div className="bg-red-50 border border-red-200 rounded-md p-4">
+                    <div className="flex items-center">
+                        <div className="text-red-400 mr-2">
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h4 className="text-red-800 font-medium">Erreur de chargement</h4>
+                            <p className="text-red-700 text-sm mt-1">{error}</p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={loadAffectations}
+                        className="mt-3 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm"
+                    >
+                        Réessayer
+                    </button>
+                </div>
             </div>
         );
     }
@@ -188,6 +228,13 @@ const CarrierePastorale: React.FC<CarrierePastoraleProps> = ({ employe }) => {
                     <Users className="mx-auto h-16 w-16 text-gray-400 mb-4" />
                     <h4 className="text-lg font-medium text-gray-900 mb-2">Aucune affectation pastorale</h4>
                     <p className="text-gray-600 mb-4">Commencez par ajouter une nouvelle affectation pour ce pasteur.</p>
+                    <button
+                        onClick={handleCreate}
+                        className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                    >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Ajouter une affectation
+                    </button>
                 </div>
             ) : (
                 <div className="grid gap-4">

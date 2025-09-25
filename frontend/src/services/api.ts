@@ -19,6 +19,8 @@ export interface AffectationPastorale {
 }
 
 export interface Employe {
+    postePersonnalise: string;
+    nouveauPoste: string;
     soldeConges?: number;
     numeroCNAPS: string;
     nombreEnfants: number;
@@ -58,15 +60,6 @@ export interface Employe {
     affectationActuelle?: string;
 }
 
-export interface TypeConge {
-    description: string;
-    id: number;
-    code: string;
-    nom: string;
-    joursAlloues: number;
-    reportable: boolean;
-    exigences?: string;
-}
 
 export interface DemandeConge {
     id: number;
@@ -180,6 +173,9 @@ export interface RegisterData {
     adresse?: string;
     dateNaissance?: string;
     genre?: string;
+    statut?: string;
+    dateInscription?: string;
+    actif?: boolean;
 }
 
 const api = axios.create({
@@ -190,11 +186,40 @@ const api = axios.create({
     withCredentials: true,
 });
 
-// Intercepteur pour le débogage
-api.interceptors.response.use(
-    (response) => response,
+api.interceptors.request.use(
+    (config) => {
+        const token = localStorage.getItem('token');
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+            console.log('🔐 Token ajouté aux headers');
+        } else {
+            console.warn('⚠️ Aucun token disponible pour la requête');
+        }
+        return config;
+    },
     (error) => {
-        console.error('API Error:', error.response?.data || error.message);
+        console.error('❌ Erreur intercepteur request:', error);
+        return Promise.reject(error);
+    }
+);
+
+api.interceptors.response.use(
+    (response) => {
+        console.log('✅ Réponse réussie:', response.config.url);
+        return response;
+    },
+    async (error) => {
+        console.error('❌ Erreur intercepteur response:', error.config?.url, error.response?.status);
+
+        if (error.response?.status === 401) {
+            console.log('🔐 Déconnexion automatique suite à une erreur 401');
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/';
+        } else if (error.response?.status === 400) {
+            console.log('⚠️ Erreur 400 - Requête mal formée:', error.response.data);
+        }
+
         return Promise.reject(error);
     }
 );
@@ -451,83 +476,152 @@ export const employeService = {
 };
 
 // Service pour l'authentification
+
+// Service pour l'authentification - VERSION CORRIGÉE
 export const authService = {
     login: async (credentials: { nomUtilisateur: string; motDePasse: string }) => {
+        const response = await api.post('/auth/login', credentials);
+
+        if (response.data.token) {
+            localStorage.setItem('token', response.data.token);
+        }
+        if (response.data.user) {
+            localStorage.setItem('user', JSON.stringify(response.data.user));
+        }
+
+        return response.data;
+    },
+
+    registerWithPhoto: async (formData: FormData): Promise<any> => {
         try {
-            const response = await axios.post(`${API_BASE_URL}/auth/login`, credentials, {
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            });
+            const response = await axios.post(
+                `${API_BASE_URL}/auth/register-with-photo`,
+                formData,
+                {
+                    headers: {
+                        'Content-Type': 'multipart/form-data',
+                    },
+                }
+            );
             return response.data;
         } catch (error: any) {
-            console.error('Erreur de login détaillée:', {
+            throw error.response?.data || error.message;
+        }
+    },
+
+    register: async (userData: RegisterData): Promise<any> => {
+        try {
+            const response = await axios.post(`${API_BASE_URL}/auth/register`, userData);
+            return response.data;
+        } catch (error: any) {
+            console.error('❌ Registration error details:', {
                 status: error.response?.status,
                 data: error.response?.data,
                 message: error.message
             });
-
-            const errorMessage = error.response?.data?.error ||
-                error.response?.data?.message ||
-                'Erreur de connexion';
-
-            throw new Error(errorMessage);
+            throw error.response?.data || error.message;
         }
     },
 
-    register: async (userData: RegisterData) => {
-        const response = await fetch(`${API_BASE_URL}/auth/register`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(userData),
-        });
-
-        if (!response.ok) {
-            throw new Error('Erreur lors de l\'inscription');
+    getCurrentUser: async (): Promise<any> => {
+        try {
+            const response = await api.get('/auth/me');
+            return response.data;
+        } catch (error: any) {
+            if (error.response?.status === 401) {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                window.location.reload();
+            }
+            throw error;
         }
-
-        return response.json();
-    },
-
-    getCurrentUser: async () => {
-        const response = await api.get('/auth/me');
-        return response.data;
     },
 
     logout: async () => {
-        await api.post('/auth/logout');
-    },
-
-    getProfile: async (): Promise<any> => {
-        const response = await api.get('/auth/profile');
+        const response = await api.post('/auth/logout');
         return response.data;
     },
 
-    updateProfile: async (userData: any): Promise<any> => {
+    updateProfile: async (userData: any) => {
         const response = await api.put('/auth/profile', userData);
         return response.data;
     },
 
-    changePassword: async (currentPassword: string, newPassword: string): Promise<any> => {
-        const response = await api.put('/auth/change-password', {
-            currentPassword,
-            newPassword
+    // CORRECTION : Méthode changePassword avec gestion d'erreur améliorée
+    changePassword: async (currentPassword: string, newPassword: string) => {
+        try {
+            console.log('🔐 Tentative de changement de mot de passe...');
+
+            // Essayez d'abord avec PUT sur change-password
+            try {
+                const response = await api.put('/auth/change-password', {
+                    currentPassword,
+                    newPassword
+                });
+                console.log('✅ Mot de passe changé avec succès');
+                return response.data;
+            } catch (putError: any) {
+                // Si PUT échoue, essayez avec POST sur password
+                if (putError.response?.status === 404 || putError.response?.status === 405) {
+                    console.log('🔄 Tentative avec POST /auth/password');
+                    const response = await api.post('/auth/password', {
+                        currentPassword,
+                        newPassword
+                    });
+                    console.log('✅ Mot de passe changé avec succès (POST)');
+                    return response.data;
+                }
+                throw putError;
+            }
+        } catch (error: any) {
+            console.error('❌ Erreur changement mot de passe:', error);
+            throw error;
+        }
+    },
+
+    uploadProfilePhoto: async (file: File) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        const response = await api.post('/auth/upload-photo', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
         });
         return response.data;
     },
 
-    uploadProfilePhoto: async (file: File): Promise<any> => {
-        const formData = new FormData();
-        formData.append('file', file);
+    refreshToken: async (token: string) => {
+        try {
+            const response = await api.post('/auth/refresh', { token });
+            return response.data;
+        } catch (error) {
+            console.error('Refresh token error:', error);
+            throw error;
+        }
+    },
 
-        const response = await api.post('/auth/upload-photo', formData, {
-            headers: {
-                'Content-Type': 'multipart/form-data',
-            },
-        });
-        return response.data;
+    validateToken: async (token: string) => {
+        try {
+            const response = await api.post('/auth/validate', { token });
+            return response.data;
+        } catch (error) {
+            console.error('Validate token error:', error);
+            throw error;
+        }
+    },
+
+    checkTokenValidity: (token: string): boolean => {
+        if (!token) return false;
+
+        try {
+            const parts = token.split('.');
+            if (parts.length !== 3) return false;
+
+            const payload = JSON.parse(atob(parts[1]));
+            return payload.exp * 1000 > Date.now();
+        } catch {
+            return false;
+        }
     }
 };
 
@@ -706,11 +800,72 @@ export const absenceService = {
 };
 
 //Service pour les affectations pastorales
-export const AffectationService = {
-   getAllAffectations:  async (): Promise<AffectationPastorale[]> => {
+// Service pour les affectations pastorales - VERSION CORRIGÉE
+export const affectationPastoraleService = {
+    // Récupérer toutes les affectations
+    getAllAffectations: async (): Promise<AffectationPastorale[]> => {
         const response = await api.get('/affectations-pastorales');
-        return response.data
-   }
+        return response.data;
+    },
+
+    // Récupérer les affectations d'un pasteur spécifique
+    getAffectationsByPasteur: async (pasteurId: number): Promise<AffectationPastorale[]> => {
+        const response = await api.get(`/affectations-pastorales/pasteur/${pasteurId}`);
+        return response.data;
+    },
+
+    // Créer une nouvelle affectation
+    createAffectation: async (affectation: {
+        district: string;
+        dateDebut: string;
+        dateFin: string | null;
+        fonction: string;
+        statut: string;
+        lettreAffectation: string | null;
+        observations: string | null;
+        pasteur: { id: any }
+    }): Promise<AffectationPastorale> => {
+        const response = await api.post('/affectations-pastorales', affectation);
+        return response.data;
+    },
+
+    // Mettre à jour une affectation
+    updateAffectation: async (id: number, affectation: {
+        district: string;
+        dateDebut: string;
+        dateFin: string | null;
+        fonction: string;
+        statut: string;
+        lettreAffectation: string | null;
+        observations: string | null;
+        pasteur: { id: any }
+    }): Promise<AffectationPastorale> => {
+        const response = await api.put(`/affectations-pastorales/${id}`, affectation);
+        return response.data;
+    },
+
+    // Supprimer une affectation
+    deleteAffectation: async (id: number): Promise<void> => {
+        await api.delete(`/affectations-pastorales/${id}`);
+    },
+
+    // Récupérer une affectation par ID
+    getAffectationById: async (id: number): Promise<AffectationPastorale> => {
+        const response = await api.get(`/affectations-pastorales/${id}`);
+        return response.data;
+    },
+
+    // Récupérer les affectations par statut
+    getAffectationsByStatut: async (statut: 'ACTIVE' | 'TERMINEE' | 'PROVISOIRE'): Promise<AffectationPastorale[]> => {
+        const response = await api.get(`/affectations-pastorales/statut/${statut}`);
+        return response.data;
+    },
+
+    // Récupérer les affectations par district
+    getAffectationsByDistrict: async (district: string): Promise<AffectationPastorale[]> => {
+        const response = await api.get(`/affectations-pastorales/district/${encodeURIComponent(district)}`);
+        return response.data;
+    }
 };
 
 // Service pour les types d'absence

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { UserPlus, Upload, Camera } from "lucide-react";
-import { authService, type RegisterData, userService } from "../services/api";
+import { UserPlus, User, Mail, Lock, Phone, MapPin, Calendar, Briefcase, ArrowRight, ArrowLeft } from "lucide-react";
+import { authService, type RegisterData } from "../services/api";
 
 interface RegisterFormProps {
     onRegister: (user: any) => void;
@@ -8,46 +8,77 @@ interface RegisterFormProps {
 }
 
 const RegisterForm: React.FC<RegisterFormProps> = ({ onRegister, onSwitchToLogin }) => {
-    const [formData, setFormData] = useState({
-        nomUtilisateur: "",
-        motDePasse: "",
-        confirmPassword: "",
-        email: "",
-        nom: "",
-        prenom: "",
-        telephone: "",
-        poste: "Administrateur RH FMC",
-        adresse: "",
-        dateNaissance: "",
-        genre: ""
-    });
-    const [photoFile, setPhotoFile] = useState<File | null>(null);
-    const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+    const [currentStep, setCurrentStep] = useState(1);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
 
-    const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            if (file.size > 10 * 1024 * 1024) {
-                setError('Le fichier est trop volumineux (max 10MB)');
-                return;
-            }
+    const [formData, setFormData] = useState({
+        // Étape 1: Informations de base
+        nomUtilisateur: "",
+        email: "",
+        motDePasse: "",
+        confirmPassword: "",
 
-            const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
-            if (!allowedTypes.includes(file.type)) {
-                setError('Type de fichier non supporté. Utilisez JPEG, PNG ou GIF.');
-                return;
-            }
+        // Étape 2: Informations personnelles
+        nom: "",
+        prenom: "",
+        telephone: "",
+        genre: "",
+        dateNaissance: "",
 
-            setPhotoFile(file);
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                setPhotoPreview(e.target?.result as string);
-            };
-            reader.readAsDataURL(file);
-            setError('');
+        // Étape 3: Informations professionnelles
+        poste: "ADMIN",
+        adresse: ""
+    });
+
+    const steps = [
+        { number: 1, title: "Compte", icon: User },
+        { number: 2, title: "Personnel", icon: User },
+        { number: 3, title: "Profession", icon: Briefcase }
+    ];
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const validateStep = (step: number): boolean => {
+        setError("");
+
+        if (step === 1) {
+            if (!formData.nomUtilisateur || !formData.email || !formData.motDePasse || !formData.confirmPassword) {
+                setError("Veuillez remplir tous les champs obligatoires");
+                return false;
+            }
+            if (formData.motDePasse.length < 6) {
+                setError("Le mot de passe doit contenir au moins 6 caractères");
+                return false;
+            }
+            if (formData.motDePasse !== formData.confirmPassword) {
+                setError("Les mots de passe ne correspondent pas");
+                return false;
+            }
         }
+
+        if (step === 2) {
+            if (!formData.nom || !formData.prenom) {
+                setError("Le nom et le prénom sont obligatoires");
+                return false;
+            }
+        }
+
+        return true;
+    };
+
+    const nextStep = () => {
+        if (validateStep(currentStep)) {
+            setCurrentStep(prev => prev + 1);
+        }
+    };
+
+    const prevStep = () => {
+        setError("");
+        setCurrentStep(prev => prev - 1);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -55,21 +86,12 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onRegister, onSwitchToLogin
         setLoading(true);
         setError("");
 
-        // Validation
-        if (formData.motDePasse !== formData.confirmPassword) {
-            setError("Les mots de passe ne correspondent pas");
-            setLoading(false);
-            return;
-        }
-
-        if (formData.motDePasse.length < 6) {
-            setError("Le mot de passe doit contenir au moins 6 caractères");
+        if (!validateStep(3)) {
             setLoading(false);
             return;
         }
 
         try {
-            // Créer l'objet userData pour l'inscription
             const userData: RegisterData = {
                 nomUtilisateur: formData.nomUtilisateur,
                 motDePasse: formData.motDePasse,
@@ -80,64 +102,234 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onRegister, onSwitchToLogin
                 poste: formData.poste,
                 adresse: formData.adresse,
                 dateNaissance: formData.dateNaissance,
-                genre: formData.genre
+                genre: formData.genre,
+                statut: "ACTIF",
+                actif: true
             };
 
-            console.log("Données envoyées:", userData);
-
             const response = await authService.register(userData);
-            console.log("Réponse du serveur:", response);
-
-            // Upload de la photo si elle existe
-            if (photoFile && response.user?.id) {
-                try {
-                    // Attendre un court instant pour s'assurer que l'utilisateur est bien créé
-                    await new Promise(resolve => setTimeout(resolve, 500));
-
-                    // Upload de la photo
-                    const uploadResponse = await userService.uploadPhoto(response.user.id, photoFile);
-                    console.log('Photo uploadée avec succès:', uploadResponse);
-
-                } catch (uploadError: any) {
-                    console.error('Erreur upload photo détaillée:', uploadError);
-                    const errorMessage = uploadError.response?.data?.error ||
-                        uploadError.response?.data?.message ||
-                        'Erreur lors de l\'upload de la photo';
-
-                    setError('Compte créé mais erreur lors de l\'upload de la photo: ' + errorMessage);
-
-                    // Stocker la photo en attente pour upload ultérieur
-                    localStorage.setItem('pending_photo', JSON.stringify({
-                        userId: response.user.id,
-                        fileName: photoFile.name,
-                        fileType: photoFile.type
-                    }));
-                }
-            }
-
             onRegister(response);
         } catch (err: any) {
-            console.error("Erreur d'inscription:", err);
             setError(err.response?.data?.message || err.message || "Erreur lors de l'inscription");
         } finally {
             setLoading(false);
         }
     };
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        const { name, value } = e.target;
-        setFormData((prev) => ({
-            ...prev,
-            [name]: value,
-        }));
+    const renderStep = () => {
+        switch (currentStep) {
+            case 1:
+                return (
+                    <div className="space-y-6">
+                        <div>
+                            <div className="flex items-center text-sm text-gray-600 mb-1">
+                                <User className="w-4 h-4 mr-1" />
+                                <span>Nom d'utilisateur</span>
+                            </div>
+                            <input
+                                type="text"
+                                name="nomUtilisateur"
+                                value={formData.nomUtilisateur}
+                                onChange={handleChange}
+                                required
+                                className="w-full border-b border-gray-400 focus:border-blue-700 focus:outline-none py-2"
+                                placeholder="Votre nom d'utilisateur"
+                            />
+                        </div>
+
+                        <div>
+                            <div className="flex items-center text-sm text-gray-600 mb-1">
+                                <Mail className="w-4 h-4 mr-1" />
+                                <span>Email professionnel</span>
+                            </div>
+                            <input
+                                type="email"
+                                name="email"
+                                value={formData.email}
+                                onChange={handleChange}
+                                required
+                                className="w-full border-b border-gray-400 focus:border-blue-700 focus:outline-none py-2"
+                                placeholder="admin@fmc.mg"
+                            />
+                        </div>
+
+                        <div>
+                            <div className="flex items-center text-sm text-gray-600 mb-1">
+                                <Lock className="w-4 h-4 mr-1" />
+                                <span>Mot de passe</span>
+                            </div>
+                            <input
+                                type="password"
+                                name="motDePasse"
+                                value={formData.motDePasse}
+                                onChange={handleChange}
+                                required
+                                minLength={6}
+                                className="w-full border-b border-gray-400 focus:border-blue-700 focus:outline-none py-2"
+                                placeholder="Votre mot de passe"
+                            />
+                        </div>
+
+                        <div>
+                            <div className="flex items-center text-sm text-gray-600 mb-1">
+                                <Lock className="w-4 h-4 mr-1" />
+                                <span>Confirmer le mot de passe</span>
+                            </div>
+                            <input
+                                type="password"
+                                name="confirmPassword"
+                                value={formData.confirmPassword}
+                                onChange={handleChange}
+                                required
+                                className="w-full border-b border-gray-400 focus:border-blue-700 focus:outline-none py-2"
+                                placeholder="Confirmez votre mot de passe"
+                            />
+                        </div>
+                    </div>
+                );
+
+            case 2:
+                return (
+                    <div className="space-y-6">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm text-gray-600 mb-1">
+                                    Prénom
+                                </label>
+                                <input
+                                    type="text"
+                                    name="prenom"
+                                    value={formData.prenom}
+                                    onChange={handleChange}
+                                    required
+                                    className="w-full border-b border-gray-400 focus:border-blue-700 focus:outline-none py-2"
+                                    placeholder="Votre prénom"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm text-gray-600 mb-1">
+                                    Nom
+                                </label>
+                                <input
+                                    type="text"
+                                    name="nom"
+                                    value={formData.nom}
+                                    onChange={handleChange}
+                                    required
+                                    className="w-full border-b border-gray-400 focus:border-blue-700 focus:outline-none py-2"
+                                    placeholder="Votre nom"
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <div className="flex items-center text-sm text-gray-600 mb-1">
+                                <User className="w-4 h-4 mr-1" />
+                                <span>Genre</span>
+                            </div>
+                            <select
+                                name="genre"
+                                value={formData.genre}
+                                onChange={handleChange}
+                                className="w-full border-b border-gray-400 focus:border-blue-700 focus:outline-none py-2 bg-transparent"
+                            >
+                                <option value="">Sélectionnez votre genre</option>
+                                <option value="M">Masculin</option>
+                                <option value="F">Féminin</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <div className="flex items-center text-sm text-gray-600 mb-1">
+                                <Calendar className="w-4 h-4 mr-1" />
+                                <span>Date de naissance</span>
+                            </div>
+                            <input
+                                type="date"
+                                name="dateNaissance"
+                                value={formData.dateNaissance}
+                                onChange={handleChange}
+                                className="w-full border-b border-gray-400 focus:border-blue-700 focus:outline-none py-2"
+                            />
+                        </div>
+
+                        <div>
+                            <div className="flex items-center text-sm text-gray-600 mb-1">
+                                <Phone className="w-4 h-4 mr-1" />
+                                <span>Téléphone</span>
+                            </div>
+                            <input
+                                type="tel"
+                                name="telephone"
+                                value={formData.telephone}
+                                onChange={handleChange}
+                                className="w-full border-b border-gray-400 focus:border-blue-700 focus:outline-none py-2"
+                                placeholder="+261 XX XX XXX XX"
+                            />
+                        </div>
+                    </div>
+                );
+
+            case 3:
+                return (
+                    <div className="space-y-6">
+                        <div>
+                            <div className="flex items-center text-sm text-gray-600 mb-1">
+                                <Briefcase className="w-4 h-4 mr-1" />
+                                <span>Poste</span>
+                            </div>
+                            <select
+                                name="poste"
+                                value={formData.poste}
+                                onChange={handleChange}
+                                required
+                                className="w-full border-b border-gray-400 focus:border-blue-700 focus:outline-none py-2 bg-transparent"
+                            >
+                                <option value="ADMIN">Administrateur RH FMC</option>
+                                <option value="ASSISTANT_RH">Assistant RH</option>
+                                <option value="SECRETAIRE_FEDERAL">Secrétaire Fédéral</option>
+                                <option value="RESPONSABLE_DISTRICT">Responsable District</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <div className="flex items-center text-sm text-gray-600 mb-1">
+                                <MapPin className="w-4 h-4 mr-1" />
+                                <span>Adresse</span>
+                            </div>
+                            <input
+                                type="text"
+                                name="adresse"
+                                value={formData.adresse}
+                                onChange={handleChange}
+                                className="w-full border-b border-gray-400 focus:border-blue-700 focus:outline-none py-2"
+                                placeholder="Votre adresse complète"
+                            />
+                        </div>
+
+                        <div className="bg-blue-50 p-4 rounded border border-blue-200">
+                            <h4 className="font-medium text-blue-900 mb-2 text-sm">Récapitulatif</h4>
+                            <div className="text-xs text-blue-800 space-y-1">
+                                <p><strong>Nom d'utilisateur:</strong> {formData.nomUtilisateur}</p>
+                                <p><strong>Email:</strong> {formData.email}</p>
+                                <p><strong>Nom complet:</strong> {formData.prenom} {formData.nom}</p>
+                                <p><strong>Poste:</strong> {formData.poste === 'ADMIN' ? 'Administrateur RH FMC' : 'Assistant RH'}</p>
+                            </div>
+                        </div>
+                    </div>
+                );
+
+            default:
+                return null;
+        }
     };
 
     return (
         <div className="min-h-screen bg-white flex flex-col">
-            {/* Bandeau bleu */}
+            {/* Bandeau bleu identique au login */}
             <div className="bg-blue-900 text-white p-4 flex justify-between items-center">
                 <h1 className="text-xl font-bold">
-                    <span className="text-2xl"></span>FMC - Inscription Administrateur
+                    <span className="text-2xl"></span>FMC - Inscription
                 </h1>
                 <button
                     onClick={onSwitchToLogin}
@@ -148,11 +340,35 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onRegister, onSwitchToLogin
             </div>
 
             {/* Formulaire */}
-            <div className="flex-1 flex items-center justify-center p-4">
-                <div className="w-full max-w-2xl bg-white rounded-lg shadow-lg p-8">
-                    <h2 className="text-center text-2xl font-bold mb-8 text-gray-700">
+            <div className="flex-1 flex items-center justify-center">
+                <div className="w-full max-w-md px-8">
+                    <h2 className="text-center text-xl font-medium mb-8 text-gray-700">
                         Création de compte Administrateur
                     </h2>
+
+                    {/* Indicateur de progression */}
+                    <div className="flex justify-center mb-6">
+                        <div className="flex items-center space-x-2">
+                            {steps.map((step, index) => {
+                                return (
+                                    <div key={step.number} className="flex items-center">
+                                        <div className={`flex items-center justify-center w-8 h-8 rounded-full border-2 text-sm ${
+                                            currentStep >= step.number
+                                                ? 'bg-blue-900 border-blue-900 text-white'
+                                                : 'border-gray-300 text-gray-500'
+                                        }`}>
+                                            {currentStep > step.number ? <ArrowRight size={14} /> : step.number}
+                                        </div>
+                                        {index < steps.length - 1 && (
+                                            <div className={`w-8 h-0.5 mx-1 ${
+                                                currentStep > step.number ? 'bg-blue-900' : 'bg-gray-300'
+                                            }`} />
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
 
                     {error && (
                         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded mb-4">
@@ -161,238 +377,44 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onRegister, onSwitchToLogin
                     )}
 
                     <form onSubmit={handleSubmit} className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {/* Colonne gauche */}
-                            <div className="space-y-4">
-                                {/* Photo de profil */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Photo de profil (optionnelle)
-                                    </label>
-                                    <div className="flex items-center space-x-4">
-                                        <div className="flex-shrink-0">
-                                            {photoPreview ? (
-                                                <img
-                                                    src={photoPreview}
-                                                    alt="Preview"
-                                                    className="h-20 w-20 rounded-full object-cover border-2 border-gray-300"
-                                                />
-                                            ) : (
-                                                <div className="h-20 w-20 rounded-full bg-gray-200 flex items-center justify-center border-2 border-dashed border-gray-300">
-                                                    <Camera className="h-8 w-8 text-gray-400" />
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div>
-                                            <input
-                                                type="file"
-                                                onChange={handlePhotoChange}
-                                                accept="image/*"
-                                                className="hidden"
-                                                id="photo-upload"
-                                            />
-                                            <label
-                                                htmlFor="photo-upload"
-                                                className="cursor-pointer bg-white border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                                            >
-                                                <Upload className="h-4 w-4 inline mr-1" />
-                                                Choisir une photo
-                                            </label>
-                                            <p className="text-xs text-gray-500 mt-1">
-                                                PNG, JPG, JPEG jusqu'à 10MB
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
+                        {renderStep()}
 
-                                {/* Nom */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Nom *
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name="nom"
-                                        value={formData.nom}
-                                        onChange={handleChange}
-                                        required
-                                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    />
-                                </div>
-
-                                {/* Prénom */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Prénom *
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name="prenom"
-                                        value={formData.prenom}
-                                        onChange={handleChange}
-                                        required
-                                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    />
-                                </div>
-
-                                {/* Genre */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Genre *
-                                    </label>
-                                    <select
-                                        name="genre"
-                                        value={formData.genre}
-                                        onChange={handleChange}
-                                        required
-                                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        <div className="flex justify-between pt-4">
+                            <div>
+                                {currentStep > 1 && (
+                                    <button
+                                        type="button"
+                                        onClick={prevStep}
+                                        className="flex items-center text-sm text-gray-600 hover:text-gray-900"
                                     >
-                                        <option value="">Sélectionnez</option>
-                                        <option value="M">Masculin</option>
-                                        <option value="F">Féminin</option>
-                                    </select>
-                                </div>
-
-                                {/* Date de naissance */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Date de naissance *
-                                    </label>
-                                    <input
-                                        type="date"
-                                        name="dateNaissance"
-                                        value={formData.dateNaissance}
-                                        onChange={handleChange}
-                                        required
-                                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    />
-                                </div>
+                                        <ArrowLeft className="w-4 h-4 mr-1" />
+                                        Précédent
+                                    </button>
+                                )}
                             </div>
 
-                            {/* Colonne droite */}
-                            <div className="space-y-4">
-                                {/* Email */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Email professionnel *
-                                    </label>
-                                    <input
-                                        type="email"
-                                        name="email"
-                                        value={formData.email}
-                                        onChange={handleChange}
-                                        required
-                                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                        placeholder="admin@fmc.mg"
-                                    />
-                                </div>
-
-                                {/* Adresse */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Adresse *
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name="adresse"
-                                        value={formData.adresse}
-                                        onChange={handleChange}
-                                        required
-                                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                        placeholder="Adresse complète"
-                                    />
-                                </div>
-
-                                {/* Téléphone */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Téléphone professionnel *
-                                    </label>
-                                    <input
-                                        type="tel"
-                                        name="telephone"
-                                        value={formData.telephone}
-                                        onChange={handleChange}
-                                        required
-                                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                        placeholder="+261 XX XX XXX XX"
-                                    />
-                                </div>
-
-                                {/* Poste */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Poste / Rôle *
-                                    </label>
-                                    <select
-                                        name="poste"
-                                        value={formData.poste}
-                                        onChange={handleChange}
-                                        required
-                                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            <div>
+                                {currentStep < steps.length ? (
+                                    <button
+                                        type="button"
+                                        onClick={nextStep}
+                                        className="flex items-center text-sm text-blue-900 hover:text-blue-700 font-medium"
                                     >
-                                        <option value="ADMIN">Administrateur RH FMC</option>
-                                        <option value="ASSISTANT_RH">Assistant RH</option>
-                                    </select>
-                                </div>
-
-                                {/* Nom d'utilisateur */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Nom d'utilisateur *
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name="nomUtilisateur"
-                                        value={formData.nomUtilisateur}
-                                        onChange={handleChange}
-                                        required
-                                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    />
-                                </div>
-
-                                {/* Mot de passe */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Mot de passe *
-                                    </label>
-                                    <input
-                                        type="password"
-                                        name="motDePasse"
-                                        value={formData.motDePasse}
-                                        onChange={handleChange}
-                                        required
-                                        minLength={6}
-                                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    />
-                                </div>
-
-                                {/* Confirmation mot de passe */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Confirmer le mot de passe *
-                                    </label>
-                                    <input
-                                        type="password"
-                                        name="confirmPassword"
-                                        value={formData.confirmPassword}
-                                        onChange={handleChange}
-                                        required
-                                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    />
-                                </div>
+                                        Suivant
+                                        <ArrowRight className="w-4 h-4 ml-1" />
+                                    </button>
+                                ) : (
+                                    <button
+                                        type="submit"
+                                        disabled={loading}
+                                        className="w-full bg-blue-900 text-white py-3 rounded shadow hover:bg-blue-800 disabled:opacity-50 flex justify-center items-center"
+                                    >
+                                        <UserPlus className="w-4 h-4 mr-2" />
+                                        {loading ? "Création..." : "CRÉER LE COMPTE"}
+                                    </button>
+                                )}
                             </div>
                         </div>
-
-                        {/* Bouton d'inscription */}
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="w-full bg-blue-900 text-white py-3 rounded-md shadow hover:bg-blue-800 disabled:opacity-50 flex justify-center items-center mt-6"
-                        >
-                            <UserPlus className="w-5 h-5 mr-2" />
-                            {loading ? "Inscription..." : "CRÉER LE COMPTE ADMINISTRATEUR"}
-                        </button>
                     </form>
 
                     <div className="mt-6 text-center">
@@ -409,4 +431,5 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onRegister, onSwitchToLogin
     );
 };
 
+// @ts-ignore
 export default RegisterForm;

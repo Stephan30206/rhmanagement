@@ -44,7 +44,7 @@ const EmployeForm: React.FC<EmployeFormProps> = ({ employe, onClose, onSave }) =
         contactUrgenceTelephone: '',
         nomPere: '',
         nomMere: '',
-        poste: 'PASTEUR_TITULAIRE',
+        poste: 'PASTEUR_STAGIAIRE',
         organisationEmployeur: '',
         typeContrat: 'CDD',
         dateDebut: '',
@@ -56,7 +56,9 @@ const EmployeForm: React.FC<EmployeFormProps> = ({ employe, onClose, onSave }) =
         niveauAccreditation: 'DISTRICT',
         groupeAccreditation: '',
         superviseurHierarchique: '',
-        affectationActuelle: ''
+        affectationActuelle: '',
+        postePersonnalise: '',
+        nouveauPoste: ''
     });
 
     const [enfants, setEnfants] = useState<Enfant[]>([]);
@@ -79,33 +81,6 @@ const EmployeForm: React.FC<EmployeFormProps> = ({ employe, onClose, onSave }) =
 
     const [hasCongeActif, setHasCongeActif] = useState(false);
     const [congeActif, setCongeActif] = useState<any>(null);
-
-    // Fonction pour vérifier et mettre à jour automatiquement le statut de congé
-    /*const verifierEtMettreAJourStatut = async (employeId: number) => {
-        try {
-            const aujourdhui = new Date().toISOString().split('T')[0];
-            const demandes = await demandeCongeService.getByEmployeId(employeId);
-
-            const congeActif = demandes.find(demande =>
-                demande.statut === 'APPROUVE' &&
-                demande.dateDebut <= aujourdhui &&
-                demande.dateFin >= aujourdhui
-            );
-
-            setHasCongeActif(!!congeActif);
-            setCongeActif(congeActif || null);
-
-            // Mettre à jour automatiquement le statut de l'employé
-            if (congeActif && formData.statut !== 'EN_CONGE') {
-                setFormData(prev => ({ ...prev, statut: 'EN_CONGE' }));
-            } else if (!congeActif && formData.statut === 'EN_CONGE') {
-                // Remettre le statut à ACTIF si plus de congé actif
-                setFormData(prev => ({ ...prev, statut: 'ACTIF' }));
-            }
-        } catch (error) {
-            console.error('Erreur vérification congé actif:', error);
-        }
-    };*/
 
     // Fonction pour vérifier le congé actif
     const verifierCongeActif = async (employeId: number) => {
@@ -249,7 +224,9 @@ const EmployeForm: React.FC<EmployeFormProps> = ({ employe, onClose, onSave }) =
                 contactUrgenceTelephone: employe.contactUrgenceTelephone || '',
                 nomPere: employe.nomPere || '',
                 nomMere: employe.nomMere || '',
-                poste: employe.poste || 'PASTEUR_TITULAIRE',
+                poste: employe.poste || 'PASTEUR_STAGIAIRE',
+                postePersonnalise: employe.postePersonnalise || '',
+                nouveauPoste: employe.nouveauPoste || '',
                 organisationEmployeur: employe.organisationEmployeur || '',
                 typeContrat: employe.typeContrat || 'CDD',
                 dateDebut: employe.dateDebut || '',
@@ -354,46 +331,64 @@ const EmployeForm: React.FC<EmployeFormProps> = ({ employe, onClose, onSave }) =
         setError('');
 
         try {
+            // Validation pour le nouveau poste
+            if (formData.poste === 'AUTRE' && !formData.nouveauPoste?.trim()) {
+                setError('Veuillez spécifier le nouveau poste');
+                setLoading(false);
+                return;
+            }
+
             const employeData = {
                 ...formData,
+                poste: formData.poste, // Garder "AUTRE" si sélectionné
+                postePersonnalise: formData.poste === 'AUTRE' ? formData.nouveauPoste?.trim() : null,
                 salaireBase: formData.salaireBase ? parseFloat(formData.salaireBase) : 0,
                 pourcentageSalaire: formData.pourcentageSalaire ? parseFloat(formData.pourcentageSalaire) : 0,
                 dateMariage: formData.dateMariage || null,
                 dateDebut: formData.dateDebut || null,
                 dateFin: formData.dateFin || null,
                 dateAccreditation: formData.dateAccreditation || null,
-                nombreEnfants: enfants.length
+                nombreEnfants: enfants.length,
+                affectationActuelle: affectationActuelleAuto
             };
+
+            // Créer une copie sans le champ nouveauPoste
+            const { nouveauPoste, ...employeDataToSend } = employeData;
 
             let savedEmploye: Employe;
 
             if (employe) {
                 // @ts-ignore
-                savedEmploye = await employeService.updateEmploye(employe.id, employeData);
+                savedEmploye = await employeService.updateEmploye(employe.id, employeDataToSend);
             } else {
                 // @ts-ignore
-                savedEmploye = await employeService.createEmploye(employeData);
+                savedEmploye = await employeService.createEmploye(employeDataToSend);
             }
 
             // Sauvegarder les enfants
             for (const enfant of enfants) {
-                await employeService.saveEnfant(savedEmploye.id, enfant);
+                if (savedEmploye.id) {
+                    await employeService.saveEnfant(savedEmploye.id, enfant);
+                }
             }
 
             // Sauvegarder les diplômes
             for (const diplome of diplomes) {
-                await employeService.saveDiplome(savedEmploye.id, diplome);
+                if (savedEmploye.id) {
+                    await employeService.saveDiplome(savedEmploye.id, diplome);
+                }
             }
 
             // Upload de la photo
             if (photoFile && savedEmploye.id) {
-                // @ts-ignore
                 setUploadingPhoto(true);
                 try {
                     await employeService.uploadPhoto(savedEmploye.id, photoFile);
                 } catch (uploadError) {
                     console.error('Erreur upload photo:', uploadError);
                     setError('Erreur lors de l\'upload de la photo, mais l\'employé a été sauvegardé');
+                } finally {
+                    setUploadingPhoto(false);
                 }
             }
 
@@ -405,7 +400,6 @@ const EmployeForm: React.FC<EmployeFormProps> = ({ employe, onClose, onSave }) =
             setError(`Erreur: ${errorMessage}`);
         } finally {
             setLoading(false);
-            setUploadingPhoto(false);
         }
     };
 
@@ -943,6 +937,23 @@ const EmployeForm: React.FC<EmployeFormProps> = ({ employe, onClose, onSave }) =
                                 <option value="AUTRE">Autre</option>
                             </select>
                         </div>
+
+                        {/* Champ conditionnel pour nouveau poste */}
+                        {formData.poste === 'AUTRE' && (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Spécifier le nouveau poste *</label>
+                                <input
+                                    type="text"
+                                    name="nouveauPoste"
+                                    value={formData.nouveauPoste || ''}
+                                    onChange={handleChange}
+                                    required
+                                    placeholder="Entrez le nom du nouveau poste"
+                                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                />
+                            </div>
+                        )}
+
                         <div>
                             <label className="block text-sm font-medium text-gray-700">
                                 Statut *
@@ -970,6 +981,7 @@ const EmployeForm: React.FC<EmployeFormProps> = ({ employe, onClose, onSave }) =
                                 </p>
                             )}
                         </div>
+
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Type de contrat</label>
                             <select
@@ -983,6 +995,7 @@ const EmployeForm: React.FC<EmployeFormProps> = ({ employe, onClose, onSave }) =
                                 <option value="BENEVOLAT">Bénévolat</option>
                             </select>
                         </div>
+
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Date de début</label>
                             <input
@@ -993,6 +1006,7 @@ const EmployeForm: React.FC<EmployeFormProps> = ({ employe, onClose, onSave }) =
                                 className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                             />
                         </div>
+
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Date de fin (CDD)</label>
                             <input
@@ -1003,6 +1017,7 @@ const EmployeForm: React.FC<EmployeFormProps> = ({ employe, onClose, onSave }) =
                                 className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                             />
                         </div>
+
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Organisation employeur</label>
                             <input
@@ -1015,7 +1030,6 @@ const EmployeForm: React.FC<EmployeFormProps> = ({ employe, onClose, onSave }) =
                         </div>
                     </div>
                 </div>
-
                 {/* Rémunération */}
                 <div>
                     <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">

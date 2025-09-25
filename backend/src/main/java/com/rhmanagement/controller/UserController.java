@@ -5,6 +5,7 @@ import com.rhmanagement.repository.UtilisateurRepository;
 import com.rhmanagement.service.UtilisateurService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -28,6 +29,26 @@ public class UserController {
 
     @Autowired
     private UtilisateurRepository utilisateurRepository;
+
+    @GetMapping("/uploads/{filename:.+}")
+    public ResponseEntity<byte[]> getImage(@PathVariable String filename) {
+        try {
+            Path filePath = Paths.get("uploads", filename);
+            byte[] imageBytes = Files.readAllBytes(filePath);
+
+            String contentType = Files.probeContentType(filePath);
+            if (contentType == null) {
+                contentType = "image/jpeg";
+            }
+
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(contentType))
+                    .body(imageBytes);
+
+        } catch (IOException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
 
     @PostMapping("/{id}/photo")
     public ResponseEntity<?> uploadUserPhoto(

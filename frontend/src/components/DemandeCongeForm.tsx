@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import {X, Save, AlertCircle, Trash2, Edit} from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Save, AlertCircle, Trash2, Edit } from 'lucide-react';
+import CustomDropdown from './CustomDropdown';
 import {
     demandeCongeService,
     employeService,
@@ -46,6 +47,30 @@ const DemandeCongeForm: React.FC<DemandeCongeFormProps> = ({
     const [demandeDetails, setDemandeDetails] = useState<any>(null);
     const [employeSolde, setEmployeSolde] = useState<number>(0);
     const [demandesExistantes, setDemandesExistantes] = useState<DemandeConge[]>([]);
+
+    // États pour le dropdown des employés
+    const [, setIsEmployeDropdownOpen] = useState(false);
+    const [employeSearchTerm, setEmployeSearchTerm] = useState('');
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    // Filtrer les employés basé sur la recherche
+    employes.filter(employe =>
+        employe.prenom.toLowerCase().includes(employeSearchTerm.toLowerCase()) ||
+        employe.nom.toLowerCase().includes(employeSearchTerm.toLowerCase()) ||
+        employe.matricule.toLowerCase().includes(employeSearchTerm.toLowerCase())
+    );
+// Fermer le dropdown quand on clique en dehors
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setIsEmployeDropdownOpen(false);
+                setEmployeSearchTerm('');
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     useEffect(() => {
         const loadData = async () => {
@@ -216,7 +241,7 @@ const DemandeCongeForm: React.FC<DemandeCongeFormProps> = ({
         return Object.keys(errors).length === 0;
     };
 
-// Dans handleSubmit, après la sauvegarde de la demande
+    // Dans handleSubmit, après la sauvegarde de la demande
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
@@ -270,7 +295,6 @@ const DemandeCongeForm: React.FC<DemandeCongeFormProps> = ({
             setLoading(false);
         }
     };
-
 
     const handleDelete = async () => {
         if (!demande?.id || !window.confirm('Êtes-vous sûr de vouloir supprimer cette demande ?')) {
@@ -493,27 +517,27 @@ const DemandeCongeForm: React.FC<DemandeCongeFormProps> = ({
                     {mode !== 'view' && (
                         <>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
+                                <div className="relative" ref={dropdownRef}>
                                     <label htmlFor="employeId" className="block text-sm font-medium text-gray-700">
                                         Employé *
                                     </label>
-                                    <select
-                                        id="employeId"
-                                        name="employeId"
+                                    <CustomDropdown
+                                        options={employes.map(employe => ({
+                                            value: employe.id.toString(),
+                                            label: `${employe.prenom} ${employe.nom} (${employe.matricule})`
+                                        }))}
                                         value={formData.employeId}
-                                        onChange={handleChange}
-                                        className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
-                                            validationErrors.employeId ? 'border-red-500' : 'border-gray-300'
-                                        }`}
+                                        onChange={(value) => setFormData(prev => ({ ...prev, employeId: value }))}
+                                        placeholder="Aucun sélectionné"
+                                        searchPlaceholder="Rechercher un employé..."
                                         disabled={mode === 'edit'}
-                                    >
-                                        <option value="">Sélectionner un employé</option>
-                                        {employes.map((employe) => (
-                                            <option key={employe.id} value={employe.id}>
-                                                {employe.prenom} {employe.nom} ({employe.matricule})
-                                            </option>
-                                        ))}
-                                    </select>
+                                        error={!!validationErrors.employeId}
+                                        className="mt-1"
+                                    />
+                                    {validationErrors.employeId && (
+                                        <p className="mt-1 text-sm text-red-600">{validationErrors.employeId}</p>
+                                    )}
+
                                     {validationErrors.employeId && (
                                         <p className="mt-1 text-sm text-red-600">{validationErrors.employeId}</p>
                                     )}
@@ -687,4 +711,5 @@ const DemandeCongeForm: React.FC<DemandeCongeFormProps> = ({
     );
 };
 
+// @ts-ignore
 export default DemandeCongeForm;

@@ -97,6 +97,10 @@ public class Employe {
     @Column(nullable = false, length = 50)
     private Poste poste;
 
+    // NOUVEAU CHAMP pour le poste personnalisé
+    @Column(length = 100)
+    private String postePersonnalise;
+
     @Column(length = 100)
     private String organisationEmployeur;
 

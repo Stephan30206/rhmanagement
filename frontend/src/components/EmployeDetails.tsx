@@ -41,11 +41,9 @@ const EmployeDetails: React.FC<EmployeDetailsProps> = ({ employe, onClose, onEdi
                     setStatutReelEmploye(details.statut);
 
                     // Mettre à jour le statut en base de données
-                    const updatedEmploye = await employeService.updateEmploye(employeId, {
+                    await employeService.updateEmploye(employeId, {
                         statut: 'EN_CONGE'
                     });
-
-                    // Mettre à jour l'état local
                     setDetails(prev => prev ? { ...prev, statut: 'EN_CONGE' } : null);
 
                     console.log('Statut automatiquement mis à jour à EN_CONGE');
@@ -56,12 +54,11 @@ const EmployeDetails: React.FC<EmployeDetailsProps> = ({ employe, onClose, onEdi
                 try {
                     // Remettre le statut à ACTIF si plus de congé actif
                     const nouveauStatut = statutReelEmploye || 'ACTIF';
-
-                    const updatedEmploye = await employeService.updateEmploye(employeId, {
+                    await employeService.updateEmploye(employeId, {
+                        // @ts-ignore
                         statut: nouveauStatut
                     });
-
-                    // Mettre à jour l'état local
+                    // @ts-ignore
                     setDetails(prev => prev ? { ...prev, statut: nouveauStatut } : null);
 
                     console.log(`Statut automatiquement remis à ${nouveauStatut}`);
@@ -143,20 +140,29 @@ const EmployeDetails: React.FC<EmployeDetailsProps> = ({ employe, onClose, onEdi
         }
     };
 
-    const getPosteName = (poste: string) => {
+    const getPosteName = (employe: any) => {
+        // Si c'est AUTRE et qu'il y a un poste personnalisé, afficher le poste personnalisé
+        if (employe.poste === 'AUTRE' && employe.postePersonnalise) {
+            return employe.postePersonnalise;
+        }
+
+        // Sinon, utiliser la correspondance habituelle
         const postes = {
-            'PASTEUR_TITULAIRE': 'Pasteur stagiaire',
-            'PASTEUR_ASSOCIE': 'Pasteur autorisé',
+            'PASTEUR_TITULAIRE': 'Pasteur titulaire',
+            'PASTEUR_STAGIAIRE': 'Pasteur stagiaire',
+            'PASTEUR_AUTORISE': 'Pasteur autorisé',
+            'PASTEUR_CONSACRE': 'Pasteur consacré',
             'EVANGELISTE': 'Évangéliste',
             'ANCIEN': 'Ancien',
-            'MISSIONNAIRE': 'Pasteur consacré',
+            'MISSIONNAIRE': 'Missionnaire',
             'ENSEIGNANT': 'Enseignant',
             'SECRETAIRE_EXECUTIF': 'Secrétaire exécutif',
             'TRESORIER': 'Trésorier',
             'ASSISTANT_RH': 'Assistant RH',
+            'VERIFICATEUR': 'Vérificateur',
             'AUTRE': 'Autre'
         };
-        return postes[poste as keyof typeof postes] || poste;
+        return postes[employe.poste as keyof typeof postes] || employe.poste;
     };
 
     const getStatutMatrimonialName = (statut: string) => {
@@ -478,7 +484,7 @@ const EmployeDetails: React.FC<EmployeDetailsProps> = ({ employe, onClose, onEdi
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         <div>
                             <label className="text-sm font-medium text-gray-500">Poste</label>
-                            <p className="text-gray-900">{getPosteName(details.poste)}</p>
+                            <p className="text-gray-900">{getPosteName(details)}</p>  {/* Passer l'objet complet au lieu de juste details.poste */}
                         </div>
                         <div>
                             <label className="text-sm font-medium text-gray-500">Statut</label>

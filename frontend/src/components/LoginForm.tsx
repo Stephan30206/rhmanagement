@@ -16,28 +16,45 @@ const LoginForm: React.FC<LoginFormProps> = ({onLogin, onSwitchToRegister }) => 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
 
+// Dans LoginForm.tsx - CORRECTION de handleSubmit
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         setError("");
 
         try {
-            // Envoi des données avec les bons noms de champs
             const loginData = {
                 nomUtilisateur: formData.nomUtilisateur,
                 motDePasse: formData.motDePasse,
             };
 
-            const user = await authService.login(loginData);
-            // Stockez l'utilisateur dans le localStorage
-            localStorage.setItem("user", JSON.stringify(user));
-            onLogin(user);
+            const response = await authService.login(loginData);
+
+            if (!response.token) {
+                throw new Error('Token manquant dans la réponse');
+            }
+
+            // ✅ Stockage du token et du user
+            localStorage.setItem("token", response.token);
+            if (response.user) {
+                localStorage.setItem("user", JSON.stringify(response.user));
+            }
+
+            // ✅ Mise à jour App
+            onLogin(response.user || response);
+
         } catch (err: any) {
-            setError(err.message || "Erreur de connexion");
+            const errorMessage = err.response?.data?.error ||
+                err.response?.data?.message ||
+                err.message ||
+                "Erreur de connexion";
+            setError(errorMessage);
+            console.error('Erreur connexion:', err);
         } finally {
             setLoading(false);
         }
     };
+
 
     const handleChange = (
         e: React.ChangeEvent<HTMLInputElement>

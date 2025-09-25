@@ -17,15 +17,12 @@ import {
     Edit,
     Trash2,
     Eye,
-    Download,
     CheckCircle,
     User,
     LogOut,
     Bell,
     AlertTriangle,
-    Save,
     Lock,
-    Shield,
     XCircle,
     Camera,
     Search
@@ -207,73 +204,156 @@ function App() {
         initAuth();
     }, []);
 
-    // Fonction utilitaire pour vérifier les tokens
-    const isValidToken = (token: string): boolean => {
-        try {
-            const parts = token.split('.');
-            if (parts.length !== 3) return false;
 
-            // Essayer de décoder pour vérifier que c'est un JSON valide
-            JSON.parse(atob(parts[1]));
-            return true;
-        } catch {
+// Modifiez checkAuth pour utiliser cette fonction
+
+    const checkAuth = async (): Promise<boolean> => {
+        try {
+            const token = localStorage.getItem('token');
+            const storedUser = localStorage.getItem('user');
+
+            console.log('🔐 Vérification auth - Token:', token ? 'présent' : 'absent');
+            console.log('👤 Utilisateur stocké:', storedUser ? 'présent' : 'absent');
+
+            if (!token) {
+                console.log('❌ Aucun token trouvé');
+                setIsAuthenticated(false);
+                setUser(null);
+                return false;
+            }
+
+            // Vérification de la structure du token
+            if (token.split('.').length !== 3) {
+                console.log('❌ Token mal formaté');
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                setIsAuthenticated(false);
+                setUser(null);
+                return false;
+            }
+
+            // Vérification expiration
+            try {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                const isExpired = payload.exp * 1000 < Date.now();
+
+                if (isExpired) {
+                    console.log('⏰ Token expiré');
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    setIsAuthenticated(false);
+                    setUser(null);
+                    return false;
+                }
+            } catch (tokenError) {
+                console.error('❌ Token invalide:', tokenError);
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                setIsAuthenticated(false);
+                setUser(null);
+                return false;
+            }
+
+            // Tentative de récupération du profil
+            try {
+                const userData = await authService.getCurrentUser();
+                console.log('✅ Profil récupéré avec succès:', userData);
+                setUser(userData);
+                setIsAuthenticated(true);
+
+                // Mettre à jour le stockage local
+                localStorage.setItem('user', JSON.stringify(userData));
+
+                return true;
+            } catch (userError: any) {
+                console.error('❌ Erreur récupération utilisateur:', userError);
+
+                // Si erreur 400/401, utiliser les données stockées en fallback
+                if (userError.response?.status === 400 || userError.response?.status === 401) {
+                    console.warn('⚠️ Utilisation des données utilisateur stockées en fallback');
+
+                    if (storedUser) {
+                        try {
+                            const user = JSON.parse(storedUser);
+                            setUser(user);
+                            setIsAuthenticated(true);
+                            return true;
+                        } catch (parseError) {
+                            console.error('❌ Erreur parsing stored user:', parseError);
+                        }
+                    }
+                }
+
+                // Déconnexion si échec
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                setIsAuthenticated(false);
+                setUser(null);
+                return false;
+            }
+
+        } catch (error) {
+            console.error('❌ Erreur vérification auth:', error);
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            setIsAuthenticated(false);
+            setUser(null);
             return false;
         }
     };
 
-// Et améliorer checkAuth :
-    const checkAuth = async () => {
-        try {
-            const token = localStorage.getItem('token');
-            if (!token) {
-                setIsAuthenticated(false);
-                return;
-            }
-
-            // Vérifier si le token est un JWT valide (contient 3 parties séparées par des points)
-            const tokenParts = token.split('.');
-            if (tokenParts.length !== 3) {
-                localStorage.removeItem('token');
-                setIsAuthenticated(false);
-                return;
-            }
-
-            try {
-                // Décoder la payload du JWT
-                const tokenData = JSON.parse(atob(tokenParts[1]));
-                const isExpired = tokenData.exp * 1000 < Date.now();
-
-                if (isExpired) {
+    // Ajoutez cette fonction dans App.tsx
+    const setupAuthInterceptor = () => {
+        api.interceptors.response.use(
+            (response) => response,
+            (error) => {
+                if (error.response?.status === 401) {
+                    // Déconnexion automatique
                     localStorage.removeItem('token');
                     setIsAuthenticated(false);
-                    return;
+                    setUser(null);
+                    setCurrentPage('dashboard');
                 }
-
-                const userData = await authService.getCurrentUser();
-                setUser(userData);
-                setIsAuthenticated(true);
-
-            } catch (decodeError) {
-                console.error('Erreur de décodage du token:', decodeError);
-                localStorage.removeItem('token');
-                setIsAuthenticated(false);
-                setUser(null);
+                return Promise.reject(error);
             }
+        );
+    };
 
-        } catch (error) {
-            console.error('Erreur de vérification auth:', error);
-            localStorage.removeItem('token');
-            setIsAuthenticated(false);
-            setUser(null);
-        }
+// Utilisez-le dans useEffect
+    useEffect(() => {
+        setupAuthInterceptor();
+    }, []);
 
+// Ajouter cette fonction utilitaire dans App.tsx (en dehors du composant principal)
+    const checkTokenExpiration = () => {
         const token = localStorage.getItem('token');
-        if (!token || !isValidToken(token)) {
-            localStorage.removeItem('token');
-            setIsAuthenticated(false);
-            return;
+        if (!token) return;
+
+        try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            const expiration = new Date(payload.exp * 1000);
+            const now = new Date();
+            const daysLeft = (expiration.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+            console.log('Jours restants:', daysLeft.toFixed(1));
+        } catch (error) {
+            console.error('Erreur analyse token:', error);
         }
-    }
+    };
+
+// Dans votre composant App, ajouter cet useEffect
+    useEffect(() => {
+        if (isAuthenticated) {
+            // Vérifier la durée du token après connexion
+            checkTokenExpiration();
+
+            // Vérifier périodiquement
+            const interval = setInterval(() => {
+                checkTokenExpiration();
+            }, 300000); // Toutes les 5 minutes
+
+            return () => clearInterval(interval);
+        }
+    }, [isAuthenticated]);
 
     useEffect(() => {
         if (isAuthenticated) {
@@ -304,9 +384,20 @@ function App() {
     }
     */}
 
-    const handleLogin = (userData: any) => {
-        setUser(userData);
-        setIsAuthenticated(true);
+// Appelez cette fonction après la connexion
+    const handleLogin = async (userData: any) => {
+        try {
+            setUser(userData.user || userData);
+            setIsAuthenticated(true);
+
+            // Vérifier la durée du token après connexion
+            setTimeout(() => {
+                checkTokenExpiration();
+            }, 1000);
+
+        } catch (error) {
+            console.error('Erreur lors de la connexion:', error);
+        }
     }
 
     const handleLogout = () => {
@@ -560,9 +651,9 @@ function App() {
                             className="flex items-center space-x-3 bg-blue-50 rounded-full px-3 py-2 border border-blue-200 hover:bg-blue-100 transition-colors"
                             title="Aller au profil"
                         >
-                            {user?.photo_profil ? (
+                            {user?.photoProfil ? (
                                 <img
-                                    src={`http://localhost:8080/uploads/${user.photo_profil}`}
+                                    src={`http://localhost:8080/uploads/${user.photoProfil}`}
                                     alt={`${user.prenom} ${user.nom}`}
                                     className="h-9 w-9 rounded-full object-cover border-2 border-blue-400 shadow-sm"
                                 />
@@ -1444,142 +1535,121 @@ function App() {
     };
 
     const Profil = () => {
-        if (!user) return null;
-
-        const [activeTab, setActiveTab] = useState('informations');
         const [isEditing, setIsEditing] = useState(false);
         const [savingProfile, setSavingProfile] = useState(false);
-        const [uploadingPhoto, setUploadingPhoto] = useState(false);
+        const [, setUploadingPhoto] = useState(false);
         const [formData, setFormData] = useState({
-            nom: user.nom || '',
-            prenom: user.prenom || '',
-            email: user.email || '',
-            telephone: user.telephone || '',
-            poste: user.poste || '',
-            adresse: user.adresse || '',
-            dateNaissance: user.dateNaissance ? user.dateNaissance.split('T')[0] : '',
-            genre: user.genre || ''
+            nom: '',
+            prenom: '',
+            email: '',
+            telephone: '',
+            poste: '',
+            adresse: '',
+            dateNaissance: '',
+            genre: ''
         });
-
         const [passwordForm, setPasswordForm] = useState({
             currentPassword: '',
             newPassword: '',
             confirmPassword: ''
         });
+        const [loading, setLoading] = useState(true);
 
         useEffect(() => {
-            // Mettre à jour formData quand user change
-            setFormData({
-                nom: user.nom || '',
-                prenom: user.prenom || '',
-                email: user.email || '',
-                telephone: user.telephone || '',
-                poste: user.poste || '',
-                adresse: user.adresse || '',
-                dateNaissance: user.dateNaissance ? user.dateNaissance.split('T')[0] : '',
-                genre: user.genre || ''
-            });
+            if (user) {
+                setFormData({
+                    nom: user.nom || '',
+                    prenom: user.prenom || '',
+                    email: user.email || '',
+                    telephone: user.telephone || '',
+                    poste: user.poste || '',
+                    adresse: user.adresse || '',
+                    dateNaissance: user.dateNaissance ? user.dateNaissance.split('T')[0] : '',
+                    genre: user.genre || ''
+                });
+                setLoading(false);
+            }
         }, [user]);
 
-        const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-            const { name, value } = e.target;
-            setFormData(prev => ({
-                ...prev,
-                [name]: value
-            }));
-        };
-
-        const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-            const { name, value } = e.target;
-            setPasswordForm(prev => ({
-                ...prev,
-                [name]: value
-            }));
-        };
+        if (!user || loading) {
+            return (
+                <div className="flex justify-center items-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+                </div>
+            );
+        }
 
         const handleSaveProfile = async () => {
             try {
-                setSavingProfile(true);
-
                 // Validation des données
-                if (!formData.nom.trim() || !formData.prenom.trim()) {
+                if (!formData.nom?.trim() || !formData.prenom?.trim()) {
                     alert('Le nom et le prénom sont obligatoires');
                     return;
                 }
 
-                if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-                    alert('Format d\'email invalide');
+                // Vérification du token
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    alert('Session expirée. Veuillez vous reconnecter.');
+                    handleLogout();
                     return;
                 }
 
-                // Structurez les données selon ce que l'API attend
-                const profileData = {
-                    nom: formData.nom.trim(),
-                    prenom: formData.prenom.trim(),
-                    email: formData.email.trim() || null,
-                    telephone: formData.telephone.trim() || null,
-                    poste: formData.poste.trim() || null,
-                    adresse: formData.adresse.trim() || null,
-                    dateNaissance: formData.dateNaissance || null,
-                    genre: formData.genre || null
-                };
+                setSavingProfile(true);
 
-                // Supprimez les champs vides/null
-                const cleanedData = Object.fromEntries(
-                    Object.entries(profileData).filter(([_, value]) => value !== null && value !== '')
-                );
+                // Nettoyage des données
+                const cleanedData: any = {};
 
-                console.log('Données nettoyées envoyées au serveur:', cleanedData);
+                if (formData.nom?.trim()) cleanedData.nom = formData.nom.trim();
+                if (formData.prenom?.trim()) cleanedData.prenom = formData.prenom.trim();
+                if (formData.email?.trim()) cleanedData.email = formData.email.trim();
+                if (formData.telephone?.trim()) cleanedData.telephone = formData.telephone.trim();
+                if (formData.poste?.trim()) cleanedData.poste = formData.poste.trim();
+                if (formData.adresse?.trim()) cleanedData.adresse = formData.adresse.trim();
+                if (formData.dateNaissance) cleanedData.dateNaissance = formData.dateNaissance;
+                if (formData.genre) cleanedData.genre = formData.genre;
+
+                console.log('📤 Données envoyées:', cleanedData);
 
                 const updatedUser = await authService.updateProfile(cleanedData);
+
+                // Mettre à jour l'état et le stockage
                 setUser(updatedUser);
+                localStorage.setItem('user', JSON.stringify(updatedUser));
+
                 setIsEditing(false);
                 alert('Profil mis à jour avec succès!');
+
             } catch (error: any) {
-                console.error('Erreur détaillée:', error);
-                alert(error.response?.data?.message || 'Erreur lors de la mise à jour du profil');
+                console.error('❌ Erreur détaillée:', error);
+
+                let errorMessage = 'Erreur lors de la mise à jour du profil';
+
+                if (error.response) {
+                    // Erreur avec réponse du serveur
+                    const { status, data } = error.response;
+
+                    if (status === 401) {
+                        errorMessage = 'Session expirée. Veuillez vous reconnecter.';
+                        handleLogout();
+                    } else if (status === 400) {
+                        errorMessage = data?.error || data?.message || 'Données invalides';
+                    } else if (status === 500) {
+                        errorMessage = 'Erreur serveur. Veuillez réessayer plus tard.';
+                    } else {
+                        errorMessage = data?.error || data?.message || `Erreur ${status}`;
+                    }
+                } else if (error.request) {
+                    // Pas de réponse du serveur
+                    errorMessage = 'Impossible de contacter le serveur. Vérifiez votre connexion.';
+                } else {
+                    // Erreur de configuration
+                    errorMessage = error.message || 'Erreur inconnue';
+                }
+
+                alert(errorMessage);
             } finally {
                 setSavingProfile(false);
-            }
-        };
-
-        const handleCancelEdit = () => {
-            setFormData({
-                nom: user.nom || '',
-                prenom: user.prenom || '',
-                email: user.email || '',
-                telephone: user.telephone || '',
-                poste: user.poste || '',
-                adresse: user.adresse || '',
-                dateNaissance: user.dateNaissance ? user.dateNaissance.split('T')[0] : '',
-                genre: user.genre || ''
-            });
-            setIsEditing(false);
-        };
-
-        const handleChangePassword = async () => {
-            if (!passwordForm.currentPassword || !passwordForm.newPassword) {
-                alert('Veuillez remplir tous les champs');
-                return;
-            }
-
-            if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-                alert('Les mots de passe ne correspondent pas');
-                return;
-            }
-
-            if (passwordForm.newPassword.length < 6) {
-                alert('Le mot de passe doit contenir au moins 6 caractères');
-                return;
-            }
-
-            try {
-                await authService.changePassword(passwordForm.currentPassword, passwordForm.newPassword);
-                setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-                alert('Mot de passe changé avec succès!');
-            } catch (error: any) {
-                console.error('Erreur lors du changement de mot de passe:', error);
-                alert(error.response?.data?.message || 'Erreur lors du changement de mot de passe');
             }
         };
 
@@ -1587,591 +1657,254 @@ function App() {
             const file = e.target.files?.[0];
             if (!file) return;
 
-            // Validation du fichier
-            if (file.size > 10 * 1024 * 1024) {
-                alert('Le fichier est trop volumineux (max 10MB)');
-                return;
-            }
-
-            if (!file.type.startsWith('image/')) {
-                alert('Veuillez sélectionner un fichier image');
-                return;
-            }
-
             try {
                 setUploadingPhoto(true);
+
+                // Vérification du token avant l'upload
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    alert('Session expirée. Veuillez vous reconnecter.');
+                    handleLogout();
+                    return;
+                }
+
+                // Vérifications du fichier
+                if (file.size > 5 * 1024 * 1024) {
+                    alert('Le fichier est trop volumineux (max 5MB)');
+                    return;
+                }
+
+                if (!file.type.startsWith('image/')) {
+                    alert('Seules les images sont autorisées');
+                    return;
+                }
+
                 const updatedUser = await authService.uploadProfilePhoto(file);
                 setUser(updatedUser);
                 alert('Photo de profil mise à jour avec succès!');
+
+                // Recharger les données utilisateur
+                await checkAuth();
+
             } catch (error: any) {
-                console.error('Erreur lors de l\'upload de la photo:', error);
-                alert(error.response?.data?.message || 'Erreur lors de l\'upload de la photo');
+                console.error('Erreur upload photo:', error);
+
+                if (error.message.includes('Token') || error.message.includes('non trouvé')) {
+                    alert('Session expirée. Veuillez vous reconnecter.');
+                    handleLogout();
+                } else {
+                    alert(error.response?.data?.error || 'Erreur lors de l\'upload de la photo');
+                }
             } finally {
                 setUploadingPhoto(false);
             }
         };
 
-        const handleExportData = () => {
-            const dataToExport = {
-                ...user,
-                motDePasse: undefined // Exclure le mot de passe
-            };
-            const dataStr = JSON.stringify(dataToExport, null, 2);
-            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-            const exportFileDefaultName = `donnees-personnelles-${user.nomUtilisateur || user.username || 'utilisateur'}.json`;
-
-            const linkElement = document.createElement('a');
-            linkElement.setAttribute('href', dataUri);
-            linkElement.setAttribute('download', exportFileDefaultName);
-            linkElement.click();
-        };
-
-        const getRoleLabel = (role: string) => {
-            switch (role) {
-                case 'ADMIN': return 'Administrateur';
-                case 'ASSISTANT_RH': return 'Assistant RH';
-                default: return role || 'Utilisateur';
-            }
-        };
-
         return (
-            <ErrorBoundary>
-                <div className="space-y-6">
-                    <div className="sm:flex sm:items-center sm:justify-between">
+            <div className="space-y-6">
+                {/* En-tête */}
+                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                    <div className="flex items-center justify-between">
                         <div>
-                            <h2 className="text-3xl font-bold text-gray-900">Mon Profil</h2>
-                            <p className="mt-2 text-sm text-gray-600">
-                                Gestion de vos informations personnelles et paramètres du compte
-                            </p>
+                            <h1 className="text-2xl font-bold text-gray-900">Mon Profil</h1>
+                            <p className="text-gray-600">Gérez vos informations personnelles</p>
                         </div>
-                        <div className="flex space-x-3 mt-4 sm:mt-0">
-                            {isEditing ? (
-                                <>
-                                    <button
-                                        onClick={handleSaveProfile}
-                                        disabled={savingProfile}
-                                        className="inline-flex items-center px-4 py-2 rounded-md text-white bg-green-600 hover:bg-green-700 transition-colors disabled:opacity-50"
-                                    >
-                                        {savingProfile ? (
-                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                                        ) : (
-                                            <Save className="h-4 w-4 mr-2" />
-                                        )}
-                                        Enregistrer
-                                    </button>
-                                    <button
-                                        onClick={handleCancelEdit}
-                                        disabled={savingProfile}
-                                        className="inline-flex items-center px-4 py-2 rounded-md text-gray-700 bg-gray-200 hover:bg-gray-300 transition-colors disabled:opacity-50"
-                                    >
-                                        <XCircle className="h-4 w-4 mr-2" />
-                                        Annuler
-                                    </button>
-                                </>
-                            ) : (
+                        {!isEditing ? (
+                            <button
+                                onClick={() => setIsEditing(true)}
+                                className="bg-blue-900 text-white px-4 py-2 rounded hover:bg-blue-800 flex items-center"
+                            >
+                                <User className="w-4 h-4 mr-2" />
+                                Modifier
+                            </button>
+                        ) : (
+                            <div className="flex space-x-2">
                                 <button
-                                    onClick={() => setIsEditing(true)}
-                                    className="inline-flex items-center px-4 py-2 rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+                                    onClick={handleSaveProfile}
+                                    disabled={savingProfile}
+                                    className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:opacity-50 flex items-center"
                                 >
-                                    <Edit className="h-4 w-4 mr-2" />
-                                    Modifier le profil
+                                    {savingProfile ? 'Enregistrement...' : 'Enregistrer'}
                                 </button>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Navigation par onglets */}
-                    <div className="bg-white shadow-sm rounded-lg">
-                        <nav className="flex space-x-8 px-6 border-b border-gray-200">
-                            <button
-                                onClick={() => setActiveTab('informations')}
-                                className={`py-4 px-1 text-sm font-medium border-b-2 ${
-                                    activeTab === 'informations'
-                                        ? 'border-blue-500 text-blue-600'
-                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                }`}
-                            >
-                                Informations Personnelles
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('professionnel')}
-                                className={`py-4 px-1 text-sm font-medium border-b-2 ${
-                                    activeTab === 'professionnel'
-                                        ? 'border-blue-500 text-blue-600'
-                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                }`}
-                            >
-                                Informations Professionnelles
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('securite')}
-                                className={`py-4 px-1 text-sm font-medium border-b-2 ${
-                                    activeTab === 'securite'
-                                        ? 'border-blue-500 text-blue-600'
-                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                }`}
-                            >
-                                Sécurité
-                            </button>
-                        </nav>
-                    </div>
-
-                    <div className="bg-white shadow overflow-hidden sm:rounded-lg">
-                        <div className="px-6 py-8">
-                            {/* En-tête avec photo */}
-                            <div className="flex flex-col sm:flex-row items-center space-y-6 sm:space-y-0 sm:space-x-8 mb-8">
-                                <div className="relative">
-                                    {uploadingPhoto ? (
-                                        <div className="h-32 w-32 rounded-full bg-gray-200 flex items-center justify-center">
-                                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                                        </div>
-                                    ) : user.photoProfil ? (
-                                        <img
-                                            src={`http://localhost:8080/uploads/${user.photoProfil}`}
-                                            alt={`${user.prenom} ${user.nom}`}
-                                            className="h-32 w-32 rounded-full object-cover border-4 border-blue-100 shadow-lg"
-                                            onError={(e) => {
-                                                // Fallback en cas d'erreur de chargement d'image
-                                                e.currentTarget.style.display = 'none';
-                                                e.currentTarget.nextElementSibling?.setAttribute('style', 'display: flex');
-                                            }}
-                                        />
-                                    ) : null}
-                                    <div
-                                        className="h-32 w-32 bg-gradient-to-br from-blue-500 to-blue-700 rounded-full flex items-center justify-center text-white font-bold text-4xl border-4 border-blue-100 shadow-lg"
-                                        style={user.photo_profil ? { display: 'none' } : {}}
-                                    >
-                                        {user.prenom?.[0]?.toUpperCase() || ''}{user.nom?.[0]?.toUpperCase() || 'U'}
-                                    </div>
-                                    <label
-                                        htmlFor="photo-upload"
-                                        className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 transition-colors shadow-lg"
-                                        title="Changer la photo de profil"
-                                    >
-                                        <Camera className="h-4 w-4" />
-                                        <input
-                                            id="photo-upload"
-                                            type="file"
-                                            accept="image/*"
-                                            className="hidden"
-                                            onChange={handleUploadPhoto}
-                                            disabled={uploadingPhoto}
-                                        />
-                                    </label>
-                                </div>
-                                <div className="text-center sm:text-left">
-                                    <h1 className="text-3xl font-bold text-gray-900">
-                                        {user.prenom} {user.nom}
-                                    </h1>
-                                    <p className="text-gray-600 text-lg">@{user.nomUtilisateur || user.username}</p>
-                                    <p className="text-sm text-gray-500 mt-2 bg-blue-100 text-blue-800 px-3 py-1 rounded-full inline-block">
-                                        {user.poste || 'Poste non spécifié'}
-                                    </p>
-                                    <div className="mt-3 flex flex-wrap gap-2 justify-center sm:justify-start">
-                                        <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
-                                            {getRoleLabel(user.role)}
-                                        </span>
-                                        <span className={`px-2 py-1 text-xs rounded-full ${user.actif
-                                            ? 'bg-green-100 text-green-800'
-                                            : 'bg-red-100 text-red-800'
-                                        }`}>
-                                            {user.actif ? 'ACTIF' : 'INACTIF'}
-                                        </span>
-                                    </div>
-                                </div>
+                                <button
+                                    onClick={() => setIsEditing(false)}
+                                    className="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400 flex items-center"
+                                >
+                                    Annuler
+                                </button>
                             </div>
+                        )}
+                    </div>
+                </div>
 
-                            {/* Contenu des onglets */}
-                            {activeTab === 'informations' && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="space-y-6">
-                                        <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Informations Personnelles</h3>
-
-                                        <div className="space-y-4">
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                    Prénom <span className="text-red-500">*</span>
-                                                </label>
-                                                {isEditing ? (
-                                                    <input
-                                                        type="text"
-                                                        name="prenom"
-                                                        value={formData.prenom}
-                                                        onChange={handleInputChange}
-                                                        required
-                                                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                    />
-                                                ) : (
-                                                    <p className="text-gray-900 bg-gray-50 p-2 rounded">{user.prenom || 'Non renseigné'}</p>
-                                                )}
-                                            </div>
-
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                    Nom <span className="text-red-500">*</span>
-                                                </label>
-                                                {isEditing ? (
-                                                    <input
-                                                        type="text"
-                                                        name="nom"
-                                                        value={formData.nom}
-                                                        onChange={handleInputChange}
-                                                        required
-                                                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                    />
-                                                ) : (
-                                                    <p className="text-gray-900 bg-gray-50 p-2 rounded">{user.nom || 'Non renseigné'}</p>
-                                                )}
-                                            </div>
-
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                                                {isEditing ? (
-                                                    <input
-                                                        type="email"
-                                                        name="email"
-                                                        value={formData.email}
-                                                        onChange={handleInputChange}
-                                                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                    />
-                                                ) : (
-                                                    <p className="text-gray-900 bg-gray-50 p-2 rounded">{user.email || 'Non renseigné'}</p>
-                                                )}
-                                            </div>
-
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
-                                                {isEditing ? (
-                                                    <input
-                                                        type="tel"
-                                                        name="telephone"
-                                                        value={formData.telephone}
-                                                        onChange={handleInputChange}
-                                                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                    />
-                                                ) : (
-                                                    <p className="text-gray-900 bg-gray-50 p-2 rounded">{user.telephone || 'Non renseigné'}</p>
-                                                )}
-                                            </div>
-
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">Genre</label>
-                                                {isEditing ? (
-                                                    <select
-                                                        name="genre"
-                                                        value={formData.genre}
-                                                        onChange={handleInputChange}
-                                                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                    >
-                                                        <option value="">Sélectionner</option>
-                                                        <option value="M">Masculin</option>
-                                                        <option value="F">Féminin</option>
-                                                    </select>
-                                                ) : (
-                                                    <p className="text-gray-900 bg-gray-50 p-2 rounded">
-                                                        {user.genre === 'M' ? 'Masculin' : user.genre === 'F' ? 'Féminin' : 'Non spécifié'}
-                                                    </p>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-6">
-                                        <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Détails Personnels</h3>
-
-                                        <div className="space-y-4">
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">Date de naissance</label>
-                                                {isEditing ? (
-                                                    <input
-                                                        type="date"
-                                                        name="dateNaissance"
-                                                        value={formData.dateNaissance}
-                                                        onChange={handleInputChange}
-                                                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                    />
-                                                ) : (
-                                                    <p className="text-gray-900 bg-gray-50 p-2 rounded">
-                                                        {user.date_naissance ? new Date(user.date_naissance).toLocaleDateString('fr-FR') : 'Non renseigné'}
-                                                    </p>
-                                                )}
-                                            </div>
-
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">Adresse</label>
-                                                {isEditing ? (
-                                                    <textarea
-                                                        name="adresse"
-                                                        value={formData.adresse}
-                                                        onChange={handleInputChange}
-                                                        rows={3}
-                                                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                    />
-                                                ) : (
-                                                    <p className="text-gray-900 bg-gray-50 p-2 rounded">{user.adresse || 'Non renseigné'}</p>
-                                                )}
-                                            </div>
-
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">Nom d'utilisateur</label>
-                                                <p className="text-gray-900 bg-gray-100 p-2 rounded border-l-4 border-blue-500">
-                                                    @{user.nomUtilisateur || user.username}
-                                                </p>
-                                                <p className="text-xs text-gray-500 mt-1">Le nom d'utilisateur ne peut pas être modifié</p>
-                                            </div>
-                                        </div>
-                                    </div>
+                {/* Photo et informations de base */}
+                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                    <div className="flex items-center space-x-6">
+                        <div className="relative">
+                            {user.photoProfil ? (
+                                <img
+                                    src={`http://localhost:8080/uploads/${user.photoProfil}`}
+                                    alt={`${user.prenom} ${user.nom}`}
+                                    className="w-20 h-20 rounded-full object-cover border-2 border-gray-300"
+                                />
+                            ) : (
+                                <div className="w-20 h-20 bg-blue-900 rounded-full flex items-center justify-center text-white text-xl font-bold">
+                                    {user.prenom?.[0]}{user.nom?.[0]}
                                 </div>
                             )}
-
-                            {activeTab === 'professionnel' && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="space-y-6">
-                                        <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Informations Professionnelles</h3>
-
-                                        <div className="space-y-4">
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">Poste</label>
-                                                {isEditing ? (
-                                                    <input
-                                                        type="text"
-                                                        name="poste"
-                                                        value={formData.poste}
-                                                        onChange={handleInputChange}
-                                                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                    />
-                                                ) : (
-                                                    <p className="text-gray-900 bg-gray-50 p-2 rounded">{user.poste || 'Non renseigné'}</p>
-                                                )}
-                                            </div>
-
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">Rôle dans le système</label>
-                                                <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-3 rounded-lg border border-blue-200">
-                                                    <div className="flex items-center">
-                                                        <Shield className="h-5 w-5 text-blue-600 mr-2" />
-                                                        <span className="font-medium text-blue-900">{getRoleLabel(user.role)}</span>
-                                                    </div>
-                                                    <p className="text-xs text-blue-700 mt-1">Détermine vos permissions dans l'application</p>
-                                                </div>
-                                            </div>
-
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">Employé associé</label>
-                                                {user.employe_id ? (
-                                                    <div className="bg-green-50 p-3 rounded-lg border border-green-200">
-                                                        <div className="flex items-center">
-                                                            <CheckCircle className="h-5 w-5 text-green-600 mr-2" />
-                                                            <span className="text-green-900">Profil employé lié (ID: {user.employe_id})</span>
-                                                        </div>
-                                                    </div>
-                                                ) : (
-                                                    <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
-                                                        <div className="flex items-center">
-                                                            <AlertTriangle className="h-5 w-5 text-yellow-600 mr-2" />
-                                                            <span className="text-yellow-900">Aucun profil employé associé</span>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-6">
-                                        <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Informations du Compte</h3>
-
-                                        <div className="space-y-4">
-                                            <div className="bg-gray-50 p-4 rounded-lg">
-                                                <div className="grid grid-cols-1 gap-3">
-                                                    <div className="flex justify-between items-center">
-                                                        <span className="text-sm font-medium text-gray-600">ID Utilisateur:</span>
-                                                        <span className="text-sm text-gray-900">#{user.id}</span>
-                                                    </div>
-                                                    <div className="flex justify-between items-center">
-                                                        <span className="text-sm font-medium text-gray-600">Statut du compte:</span>
-                                                        <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                                                            user.actif
-                                                                ? 'bg-green-100 text-green-800'
-                                                                : 'bg-red-100 text-red-800'
-                                                        }`}>
-                                                            {user.actif ? 'Actif' : 'Inactif'}
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex justify-between items-center">
-                                                        <span className="text-sm font-medium text-gray-600">Date de création:</span>
-                                                        <span className="text-sm text-gray-900">
-                                                            {user.date_creation ? new Date(user.date_creation).toLocaleDateString('fr-FR', {
-                                                                year: 'numeric',
-                                                                month: 'long',
-                                                                day: 'numeric'
-                                                            }) : 'Non disponible'}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                                                <h4 className="font-medium text-blue-900 mb-2">Permissions actuelles</h4>
-                                                <div className="flex flex-wrap gap-2">
-                                                    {user.role === 'ADMIN' && (
-                                                        <>
-                                                            <span className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full">Toutes permissions</span>
-                                                        </>
-                                                    )}
-                                                    {(user.role === 'SECRETAIRE_FEDERAL' || user.role === 'RESPONSABLE_DISTRICT') && (
-                                                        <>
-                                                            <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">Gestion employés</span>
-                                                            <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">Gestion congés</span>
-                                                            <span className="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded-full">Documents</span>
-                                                        </>
-                                                    )}
-                                                    {user.role === 'ASSISTANT_RH' && (
-                                                        <>
-                                                            <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">Consultation employés</span>
-                                                            <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">Gestion congés</span>
-                                                        </>
-                                                    )}
-                                                    <span className="bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded-full">Accès profil</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {activeTab === 'securite' && (
-                                <div className="space-y-6">
-                                    <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Sécurité du Compte</h3>
-
-                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                        <div className="bg-blue-50 p-6 rounded-lg border border-blue-200">
-                                            <h4 className="text-md font-medium text-blue-900 mb-4 flex items-center">
-                                                <Lock className="h-5 w-5 mr-2" />
-                                                Changer le mot de passe
-                                            </h4>
-                                            <div className="space-y-4">
-                                                <div>
-                                                    <label className="block text-sm font-medium text-blue-800 mb-1">Mot de passe actuel</label>
-                                                    <input
-                                                        type="password"
-                                                        name="currentPassword"
-                                                        value={passwordForm.currentPassword}
-                                                        onChange={handlePasswordChange}
-                                                        className="w-full border border-blue-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                        placeholder="Entrez votre mot de passe actuel"
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-blue-800 mb-1">Nouveau mot de passe</label>
-                                                    <input
-                                                        type="password"
-                                                        name="newPassword"
-                                                        value={passwordForm.newPassword}
-                                                        onChange={handlePasswordChange}
-                                                        className="w-full border border-blue-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                        placeholder="Nouveau mot de passe (min 6 caractères)"
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-blue-800 mb-1">Confirmer le mot de passe</label>
-                                                    <input
-                                                        type="password"
-                                                        name="confirmPassword"
-                                                        value={passwordForm.confirmPassword}
-                                                        onChange={handlePasswordChange}
-                                                        className="w-full border border-blue-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                        placeholder="Confirmez le nouveau mot de passe"
-                                                    />
-                                                </div>
-                                                <button
-                                                    onClick={handleChangePassword}
-                                                    className="w-full inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                                                >
-                                                    <Lock className="h-4 w-4 mr-2" />
-                                                    Changer le mot de passe
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        <div className="bg-purple-50 p-6 rounded-lg border border-purple-200">
-                                            <h4 className="text-md font-medium text-purple-900 mb-4 flex items-center">
-                                                <Download className="h-5 w-5 mr-2" />
-                                                Export des données
-                                            </h4>
-                                            <p className="text-sm text-purple-800 mb-4">
-                                                Téléchargez une copie de toutes vos données personnelles au format JSON.
-                                                Les mots de passe ne sont pas inclus dans l'export.
-                                            </p>
-                                            <button
-                                                onClick={handleExportData}
-                                                className="w-full inline-flex items-center justify-center px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
-                                            >
-                                                <Download className="h-4 w-4 mr-2" />
-                                                Exporter mes données
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    <div className="bg-yellow-50 p-6 rounded-lg border border-yellow-200">
-                                        <h4 className="text-md font-medium text-yellow-900 mb-3 flex items-center">
-                                            <Shield className="h-5 w-5 mr-2" />
-                                            Conseils de sécurité
-                                        </h4>
-                                        <ul className="text-sm text-yellow-800 space-y-2">
-                                            <li>• Utilisez un mot de passe unique et complexe</li>
-                                            <li>• Ne partagez jamais vos identifiants de connexion</li>
-                                            <li>• Déconnectez-vous toujours après utilisation sur un ordinateur partagé</li>
-                                            <li>• Signalez tout accès suspect à votre compte</li>
-                                        </ul>
-                                    </div>
-
-                                    <div className="bg-red-50 p-6 rounded-lg border border-red-200">
-                                        <h4 className="text-md font-medium text-red-900 mb-3 flex items-center">
-                                            <AlertTriangle className="h-5 w-5 mr-2" />
-                                            Zone de danger
-                                        </h4>
-                                        <p className="text-sm text-red-800 mb-4">
-                                            Actions irréversibles qui nécessitent l'intervention d'un administrateur.
-                                        </p>
-                                        <button
-                                            onClick={() => alert('Veuillez contacter un administrateur pour désactiver votre compte.')}
-                                            className="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
-                                        >
-                                            <XCircle className="h-4 w-4 mr-2" />
-                                            Désactiver le compte
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
+                            <label className="absolute bottom-0 right-0 bg-blue-900 text-white p-1 rounded-full cursor-pointer hover:bg-blue-800">
+                                <Camera className="w-3 h-3" />
+                                <input type="file" className="hidden" onChange={handleUploadPhoto} accept="image/*" />
+                            </label>
+                        </div>
+                        <div>
+                            <h2 className="text-xl font-semibold">{user.prenom} {user.nom}</h2>
+                            <p className="text-gray-600">@{user.nomUtilisateur}</p>
+                            <p className="text-blue-900 font-medium">{user.poste}</p>
                         </div>
                     </div>
                 </div>
-            </ErrorBoundary>
+
+                {/* Informations personnelles */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="bg-white rounded-lg border border-gray-200 p-6">
+                        <h3 className="text-lg font-semibold mb-4 flex items-center">
+                            <User className="w-5 h-5 mr-2 text-blue-900" />
+                            Informations personnelles
+                        </h3>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm text-gray-600 mb-1">Prénom</label>
+                                {isEditing ? (
+                                    <input
+                                        type="text"
+                                        value={formData.prenom}
+                                        onChange={(e) => setFormData({...formData, prenom: e.target.value})}
+                                        className="w-full border-b border-gray-400 focus:border-blue-700 focus:outline-none py-2"
+                                    />
+                                ) : (
+                                    <p className="py-2">{user.prenom}</p>
+                                )}
+                            </div>
+                            <div>
+                                <label className="block text-sm text-gray-600 mb-1">Nom</label>
+                                {isEditing ? (
+                                    <input
+                                        type="text"
+                                        value={formData.nom}
+                                        onChange={(e) => setFormData({...formData, nom: e.target.value})}
+                                        className="w-full border-b border-gray-400 focus:border-blue-700 focus:outline-none py-2"
+                                    />
+                                ) : (
+                                    <p className="py-2">{user.nom}</p>
+                                )}
+                            </div>
+                            <div>
+                                <label className="block text-sm text-gray-600 mb-1">Email</label>
+                                {isEditing ? (
+                                    <input
+                                        type="email"
+                                        value={formData.email}
+                                        onChange={(e) => setFormData({...formData, email: e.target.value})}
+                                        className="w-full border-b border-gray-400 focus:border-blue-700 focus:outline-none py-2"
+                                    />
+                                ) : (
+                                    <p className="py-2">{user.email || 'Non renseigné'}</p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Sécurité */}
+                    <div className="bg-white rounded-lg border border-gray-200 p-6">
+                        <h3 className="text-lg font-semibold mb-4 flex items-center">
+                            <Lock className="w-5 h-5 mr-2 text-blue-900" />
+                            Sécurité
+                        </h3>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm text-gray-600 mb-1">Mot de passe actuel</label>
+                                <input
+                                    type="password"
+                                    value={passwordForm.currentPassword}
+                                    onChange={(e) => setPasswordForm({...passwordForm, currentPassword: e.target.value})}
+                                    className="w-full border-b border-gray-400 focus:border-blue-700 focus:outline-none py-2"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm text-gray-600 mb-1">Nouveau mot de passe</label>
+                                <input
+                                    type="password"
+                                    value={passwordForm.newPassword}
+                                    onChange={(e) => setPasswordForm({...passwordForm, newPassword: e.target.value})}
+                                    className="w-full border-b border-gray-400 focus:border-blue-700 focus:outline-none py-2"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm text-gray-600 mb-1">Confirmer le mot de passe</label>
+                                <input
+                                    type="password"
+                                    value={passwordForm.confirmPassword}
+                                    onChange={(e) => setPasswordForm({...passwordForm, confirmPassword: e.target.value})}
+                                    className="w-full border-b border-gray-400 focus:border-blue-700 focus:outline-none py-2"
+                                />
+                            </div>
+                            <button
+                                onClick={async () => {
+                                    if (!passwordForm.currentPassword || !passwordForm.newPassword) {
+                                        alert('Veuillez remplir tous les champs');
+                                        return;
+                                    }
+                                    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+                                        alert('Les mots de passe ne correspondent pas');
+                                        return;
+                                    }
+                                    try {
+                                        await authService.changePassword(passwordForm.currentPassword, passwordForm.newPassword);
+                                        setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+                                        alert('Mot de passe changé avec succès!');
+                                    } catch (error: any) {
+                                        alert(error.response?.data?.message || 'Erreur lors du changement de mot de passe');
+                                    }
+                                }}
+                                className="bg-blue-900 text-white px-4 py-2 rounded hover:bg-blue-800"
+                            >
+                                Changer le mot de passe
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         );
     };
 
     const renderPage = () => {
+        // Vérifier l'authentification avant de rendre la page
+        if (!isAuthenticated && currentPage !== 'login') {
+            return <LoginForm onLogin={handleLogin} onSwitchToRegister={() => setShowRegister(true)} />;
+        }
+
         switch (currentPage) {
             case 'dashboard':
-                return <Dashboard/>
+                return <Dashboard/>;
             case 'employes':
-                return <Employes/>
+                return <Employes/>;
             case 'conges':
-                return <Conges/>
-            case 'absences': // Nouveau cas
-                return <Absences/>
-            case 'carriere-pastorale': // Nouveau cas
-                return <CarrierePastoralePage/>
+                return <Conges/>;
+            case 'absences':
+                return <Absences/>;
+            case 'carriere-pastorale':
+                return <CarrierePastoralePage/>;
             case 'documents':
-                return <Documents/>
+                return <Documents/>;
             case 'talents':
-                return <Talents/>
+                return <Talents/>;
             case 'etat-service':
-                return <EtatService/>
+                return <EtatService/>;
             case 'profil':
-                return <Profil/>
+                return <Profil/>;
             default:
-                return <Dashboard/>
+                return <Dashboard/>;
         }
     }
 

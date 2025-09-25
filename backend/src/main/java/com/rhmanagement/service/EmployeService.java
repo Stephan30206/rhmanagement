@@ -42,13 +42,6 @@ public class EmployeService {
         return employeRepository.findByMatricule(matricule);
     }
 
-    public Employe saveEmploye(Employe employe) {
-        if (employe.getMatricule() == null || employe.getMatricule().isEmpty()) {
-            employe.setMatricule(generateMatricule());
-        }
-        return employeRepository.save(employe);
-    }
-
     public Employe updateEmploye(Long id, Employe employeDetails) {
         Employe employe = employeRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Employé non trouvé avec l'ID : " + id));
@@ -72,6 +65,7 @@ public class EmployeService {
         employe.setNomPere(employeDetails.getNomPere());
         employe.setNomMere(employeDetails.getNomMere());
         employe.setPoste(employeDetails.getPoste());
+        employe.setPostePersonnalise(employeDetails.getPostePersonnalise()); // AJOUTEZ cette ligne
         employe.setOrganisationEmployeur(employeDetails.getOrganisationEmployeur());
         employe.setTypeContrat(employeDetails.getTypeContrat());
         employe.setDateDebut(employeDetails.getDateDebut());
@@ -85,7 +79,8 @@ public class EmployeService {
         employe.setSuperviseurHierarchique(employeDetails.getSuperviseurHierarchique());
         employe.setAffectationActuelle(employeDetails.getAffectationActuelle());
 
-        return employeRepository.save(employe);
+        // Appliquer la logique de gestion du poste personnalisé
+        return saveEmploye(employe);
     }
 
     public void deleteEmploye(Long id) {
@@ -254,5 +249,44 @@ public class EmployeService {
         }
 
         return employe;
+    }
+
+    // Méthode pour obtenir le libellé du poste à afficher
+    public String getLibellePoste(Employe employe) {
+        if (employe.getPoste() == Employe.Poste.AUTRE &&
+                employe.getPostePersonnalise() != null &&
+                !employe.getPostePersonnalise().trim().isEmpty()) {
+            return employe.getPostePersonnalise();
+        }
+        return employe.getPoste().name();
+    }
+
+//    public Employe saveEmploye(Employe employe) {
+//        if (employe.getMatricule() == null || employe.getMatricule().isEmpty()) {
+//            employe.setMatricule(generateMatricule());
+//        }
+//        return employeRepository.save(employe);
+//    }
+
+    // Méthode pour sauvegarder avec gestion du poste personnalisé
+    public Employe saveEmploye(Employe employe) {
+        // Générer matricule si nécessaire
+        if (employe.getMatricule() == null || employe.getMatricule().isEmpty()) {
+            employe.setMatricule(generateMatricule());
+        }
+
+        // Si le poste est AUTRE et qu'il y a un poste personnalisé
+        if (employe.getPoste() == Employe.Poste.AUTRE &&
+                employe.getPostePersonnalise() != null &&
+                !employe.getPostePersonnalise().trim().isEmpty()) {
+
+            // Le poste reste AUTRE mais on sauvegarde le poste personnalisé
+            employe.setPostePersonnalise(employe.getPostePersonnalise().trim());
+        } else if (employe.getPoste() != Employe.Poste.AUTRE) {
+            // Si ce n'est pas AUTRE, on vide le champ personnalisé
+            employe.setPostePersonnalise(null);
+        }
+
+        return employeRepository.save(employe);
     }
 }
