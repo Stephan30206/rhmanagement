@@ -18,6 +18,7 @@ const EmployeDetails: React.FC<EmployeDetailsProps> = ({ employe, onClose, onEdi
     const [hasCongeActif, setHasCongeActif] = useState(false);
     const [congeActifInfo, setCongeActifInfo] = useState<any>(null);
     const [statutReelEmploye, setStatutReelEmploye] = useState<string>('');
+    const [exportLoading, setExportLoading] = useState(false);
 
     // Fonction pour vérifier le congé actif et mettre à jour le statut automatiquement
     const verifierEtMettreAJourStatut = async (employeId: number) => {
@@ -112,8 +113,27 @@ const EmployeDetails: React.FC<EmployeDetailsProps> = ({ employe, onClose, onEdi
         return () => clearInterval(interval);
     }, [employe?.id, details]);
 
-    const handlePrint = () => {
-        window.print();
+    const handleExport = async () => {
+        if (!details) return;
+
+        setExportLoading(true);
+        try {
+            const response = await employeService.exportFicheEmploye(details.id);
+            const blob = new Blob([response.data], { type: 'application/pdf' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `fiche-employe-${details.matricule}-${new Date().toISOString().split('T')[0]}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        } catch (error) {
+            console.error('Erreur lors de l\'export PDF:', error);
+            alert('Erreur lors de l\'export de la fiche employé');
+        } finally {
+            setExportLoading(false);
+        }
     };
 
     if (!details) {
@@ -199,11 +219,16 @@ const EmployeDetails: React.FC<EmployeDetailsProps> = ({ employe, onClose, onEdi
                 <h2 className="text-2xl font-bold text-gray-900">Détails de l'employé</h2>
                 <div className="flex space-x-2">
                     <button
-                        onClick={handlePrint}
-                        className="p-2 rounded-md hover:bg-gray-100 text-blue-600"
-                        title="Imprimer"
+                        onClick={handleExport}
+                        disabled={exportLoading}
+                        className="p-2 rounded-md hover:bg-gray-100 text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Exporter en PDF"
                     >
-                        <Download className="w-5 h-5" />
+                        {exportLoading ? (
+                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
+                        ) : (
+                            <Download className="w-5 h-5" />
+                        )}
                     </button>
                     <button
                         onClick={() => setShowHistorique(!showHistorique)}
@@ -484,7 +509,7 @@ const EmployeDetails: React.FC<EmployeDetailsProps> = ({ employe, onClose, onEdi
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         <div>
                             <label className="text-sm font-medium text-gray-500">Poste</label>
-                            <p className="text-gray-900">{getPosteName(details)}</p>  {/* Passer l'objet complet au lieu de juste details.poste */}
+                            <p className="text-gray-900">{getPosteName(details)}</p>
                         </div>
                         <div>
                             <label className="text-sm font-medium text-gray-500">Statut</label>

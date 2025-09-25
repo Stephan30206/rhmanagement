@@ -1,3 +1,4 @@
+import type { AxiosResponse } from "axios";
 import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
@@ -473,6 +474,12 @@ export const employeService = {
             throw error;
         }
     },
+    // Dans employeService - Remplacer la méthode existante
+    exportFicheEmploye: async (employeId: number): Promise<AxiosResponse<Blob>> => {
+        return await api.get(`/employes/${employeId}/fiche-pdf`, {
+            responseType: 'blob'
+        });
+    }
 };
 
 // Service pour l'authentification

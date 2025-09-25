@@ -1,5 +1,9 @@
 package com.rhmanagement.service;
 
+import com.itextpdf.text.BaseColor;
+import com.lowagie.text.*;
+import com.lowagie.text.Font;
+import com.lowagie.text.pdf.PdfWriter;
 import com.rhmanagement.entity.Employe;
 import com.rhmanagement.entity.Enfant;
 import com.rhmanagement.entity.DemandeConge;
@@ -11,13 +15,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.awt.*;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
@@ -65,7 +73,7 @@ public class EmployeService {
         employe.setNomPere(employeDetails.getNomPere());
         employe.setNomMere(employeDetails.getNomMere());
         employe.setPoste(employeDetails.getPoste());
-        employe.setPostePersonnalise(employeDetails.getPostePersonnalise()); // AJOUTEZ cette ligne
+        employe.setPostePersonnalise(employeDetails.getPostePersonnalise());
         employe.setOrganisationEmployeur(employeDetails.getOrganisationEmployeur());
         employe.setTypeContrat(employeDetails.getTypeContrat());
         employe.setDateDebut(employeDetails.getDateDebut());
@@ -79,7 +87,6 @@ public class EmployeService {
         employe.setSuperviseurHierarchique(employeDetails.getSuperviseurHierarchique());
         employe.setAffectationActuelle(employeDetails.getAffectationActuelle());
 
-        // Appliquer la logique de gestion du poste personnalisé
         return saveEmploye(employe);
     }
 
@@ -177,7 +184,6 @@ public class EmployeService {
     public List<Map<String, Object>> getEmployesAvecCongesTermines() {
         LocalDate aujourdhui = LocalDate.now();
 
-        // Utilisez la méthode appropriée selon votre implémentation
         List<Employe> employesEnConge = employeRepository.findByStatut(Employe.StatutEmploye.EN_CONGE);
 
         return employesEnConge.stream()
@@ -189,8 +195,7 @@ public class EmployeService {
 
                     return demandesApprouvees.stream()
                             .anyMatch(demande -> {
-                                // Supprimez .toLocalDate() car dateFin est déjà un LocalDate
-                                LocalDate dateFin = demande.getDateFin(); // Pas de .toLocalDate() ici
+                                LocalDate dateFin = demande.getDateFin();
                                 return dateFin.isBefore(aujourdhui) || dateFin.isEqual(aujourdhui);
                             });
                 })
@@ -219,7 +224,6 @@ public class EmployeService {
     }
 
     public int getIncoherencesStatutCount() {
-        // Employés marqués EN_CONGE mais sans congé actif
         LocalDate aujourdhui = LocalDate.now();
         List<Employe> employesEnConge = employeRepository.findByStatut(Employe.StatutEmploye.EN_CONGE);
 
@@ -238,12 +242,10 @@ public class EmployeService {
         Employe employe = employeRepository.findById(employeId)
                 .orElseThrow(() -> new RuntimeException("Employé non trouvé"));
 
-        // Vérifier si l'employé a encore des congés actifs
         LocalDate aujourdhui = LocalDate.now();
         List<DemandeConge> congesActifs = demandeCongeRepository.findCongesActifs(employeId, aujourdhui);
 
         if (congesActifs.isEmpty()) {
-            // Pas de congés actifs, mettre en ACTIF
             employe.setStatut(Employe.StatutEmploye.ACTIF);
             employe = employeRepository.save(employe);
         }
@@ -251,7 +253,6 @@ public class EmployeService {
         return employe;
     }
 
-    // Méthode pour obtenir le libellé du poste à afficher
     public String getLibellePoste(Employe employe) {
         if (employe.getPoste() == Employe.Poste.AUTRE &&
                 employe.getPostePersonnalise() != null &&
@@ -261,32 +262,231 @@ public class EmployeService {
         return employe.getPoste().name();
     }
 
-//    public Employe saveEmploye(Employe employe) {
-//        if (employe.getMatricule() == null || employe.getMatricule().isEmpty()) {
-//            employe.setMatricule(generateMatricule());
-//        }
-//        return employeRepository.save(employe);
-//    }
-
-    // Méthode pour sauvegarder avec gestion du poste personnalisé
     public Employe saveEmploye(Employe employe) {
-        // Générer matricule si nécessaire
         if (employe.getMatricule() == null || employe.getMatricule().isEmpty()) {
             employe.setMatricule(generateMatricule());
         }
 
-        // Si le poste est AUTRE et qu'il y a un poste personnalisé
         if (employe.getPoste() == Employe.Poste.AUTRE &&
                 employe.getPostePersonnalise() != null &&
                 !employe.getPostePersonnalise().trim().isEmpty()) {
-
-            // Le poste reste AUTRE mais on sauvegarde le poste personnalisé
             employe.setPostePersonnalise(employe.getPostePersonnalise().trim());
         } else if (employe.getPoste() != Employe.Poste.AUTRE) {
-            // Si ce n'est pas AUTRE, on vide le champ personnalisé
             employe.setPostePersonnalise(null);
         }
 
         return employeRepository.save(employe);
+    }
+
+    public byte[] generateFicheEmployePdf(Long id) {
+        try {
+            System.out.println("Début génération PDF pour employé ID: " + id);
+
+            Employe employe = employeRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Employé non trouvé avec l'ID : " + id));
+
+            List<Enfant> enfants = getEnfantsByEmployeId(id);
+
+            System.out.println("Employé trouvé: " + employe.getPrenom() + " " + employe.getNom());
+
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            Document document = new Document(PageSize.A4);
+
+            PdfWriter.getInstance(document, baos);
+            document.open();
+
+            // Titre principal - Correction de la méthode getFont
+            Font titleFont = new Font(Font.HELVETICA, 18, Font.BOLD, new Color(0, 0, 255)); // Bleu
+            Paragraph title = new Paragraph("FICHE EMPLOYÉ", titleFont);
+            title.setAlignment(Element.ALIGN_CENTER);
+            title.setSpacingAfter(20);
+            document.add(title);
+
+            // Section Informations Personnelles
+            addSectionTitle(document, "INFORMATIONS PERSONNELLES");
+            addInfoLine(document, "Nom complet", getSafeString(employe.getPrenom() + " " + employe.getNom()));
+            addInfoLine(document, "Matricule", getSafeString(employe.getMatricule()));
+            addInfoLine(document, "Date de naissance", formatDate(employe.getDateNaissance()));
+            addInfoLine(document, "Lieu de naissance", getSafeString(employe.getLieuNaissance()));
+            addInfoLine(document, "CIN", getSafeString(employe.getCin()));
+            addInfoLine(document, "Nationalité", getSafeString(employe.getNationalite()));
+            addInfoLine(document, "Statut matrimonial",
+                    employe.getStatutMatrimonial() != null ? employe.getStatutMatrimonial().name() : "Non spécifié");
+            addInfoLine(document, "Numéro CNAPS", getSafeString(employe.getNumeroCNAPS()));
+            addInfoLine(document, "Nom du père", getSafeString(employe.getNomPere()));
+            addInfoLine(document, "Nom de la mère", getSafeString(employe.getNomMere()));
+
+            document.add(Chunk.NEWLINE);
+
+            // Section Contact
+            addSectionTitle(document, "INFORMATIONS DE CONTACT");
+            addInfoLine(document, "Adresse", getSafeString(employe.getAdresse()));
+            addInfoLine(document, "Téléphone", getSafeString(employe.getTelephone()));
+            addInfoLine(document, "Email", getSafeString(employe.getEmail()));
+
+            document.add(Chunk.NEWLINE);
+
+            // Section Contact d'urgence
+            addSectionTitle(document, "CONTACT D'URGENCE");
+            addInfoLine(document, "Nom", getSafeString(employe.getContactUrgenceNom()));
+            addInfoLine(document, "Lien", getSafeString(employe.getContactUrgenceLien()));
+            addInfoLine(document, "Téléphone", getSafeString(employe.getContactUrgenceTelephone()));
+
+            document.add(Chunk.NEWLINE);
+
+            // Section Professionnelle - CORRECTION DES TYPES NUMÉRIQUES
+            addSectionTitle(document, "INFORMATIONS PROFESSIONNELLES");
+            addInfoLine(document, "Poste", getLibellePoste(employe));
+            addInfoLine(document, "Statut", employe.getStatut() != null ? employe.getStatut().name() : "Non spécifié");
+            addInfoLine(document, "Type de contrat", getSafeString(String.valueOf(employe.getTypeContrat())));
+            addInfoLine(document, "Organisation employeur", getSafeString(employe.getOrganisationEmployeur()));
+            addInfoLine(document, "Date de début", formatDate(employe.getDateDebut()));
+            addInfoLine(document, "Date de fin", formatDate(employe.getDateFin()));
+
+            // CORRECTION : Gestion sécurisée des nombres sans cast problématique
+            String salaireBaseStr = "Non spécifié";
+            if (employe.getSalaireBase() != null) {
+                try {
+                    // Utilisation directe de toString() pour éviter les problèmes de cast
+                    Number salaire = employe.getSalaireBase();
+                    if (salaire instanceof java.math.BigDecimal) {
+                        java.math.BigDecimal bd = (java.math.BigDecimal) salaire;
+                        salaireBaseStr = String.format("%,.0f MGA", bd.doubleValue());
+                    } else {
+                        salaireBaseStr = String.format("%,d MGA", salaire.longValue());
+                    }
+                } catch (Exception e) {
+                    salaireBaseStr = employe.getSalaireBase().toString() + " MGA";
+                }
+            }
+            addInfoLine(document, "Salaire base", salaireBaseStr);
+
+            // CORRECTION : Gestion sécurisée du pourcentage
+            String pourcentageStr = "Non spécifié";
+            if (employe.getPourcentageSalaire() != null) {
+                try {
+                    Number pourcentage = employe.getPourcentageSalaire();
+                    if (pourcentage instanceof java.math.BigDecimal) {
+                        java.math.BigDecimal bd = (java.math.BigDecimal) pourcentage;
+                        pourcentageStr = String.format("%.0f%%", bd.doubleValue());
+                    } else {
+                        pourcentageStr = pourcentage.toString() + "%";
+                    }
+                } catch (Exception e) {
+                    pourcentageStr = employe.getPourcentageSalaire().toString() + "%";
+                }
+            }
+            addInfoLine(document, "Pourcentage salaire", pourcentageStr);
+
+            addInfoLine(document, "Superviseur hiérarchique", getSafeString(employe.getSuperviseurHierarchique()));
+            addInfoLine(document, "Affectation actuelle", getSafeString(employe.getAffectationActuelle()));
+
+            document.add(Chunk.NEWLINE);
+
+            // Section Accréditation
+            addSectionTitle(document, "ACCRÉDITATION");
+            addInfoLine(document, "Date d'accréditation", formatDate(employe.getDateAccreditation()));
+            addInfoLine(document, "Niveau d'accréditation", getSafeString(String.valueOf(employe.getNiveauAccreditation())));
+            addInfoLine(document, "Groupe d'accréditation", getSafeString(employe.getGroupeAccreditation()));
+
+            // Informations familiales si marié
+            if (employe.getStatutMatrimonial() != null &&
+                    employe.getStatutMatrimonial().name().equals("MARIE")) {
+
+                document.add(Chunk.NEWLINE);
+                addSectionTitle(document, "INFORMATIONS FAMILIALES");
+                addInfoLine(document, "Nom du conjoint", getSafeString(employe.getNomConjoint()));
+                addInfoLine(document, "Date de mariage", formatDate(employe.getDateMariage()));
+                addInfoLine(document, "Date de naissance du conjoint", formatDate(employe.getDateNaissanceConjoint()));
+                addInfoLine(document, "Nombre d'enfants", String.valueOf(enfants.size()));
+
+                if (!enfants.isEmpty()) {
+                    document.add(Chunk.NEWLINE);
+                    addSimpleLine(document, "Liste des enfants:", Font.BOLD);
+
+                    for (Enfant enfant : enfants) {
+                        addSimpleLine(document, "• " + getSafeString(enfant.getNom()),
+                                formatDate(enfant.getDateNaissance()));
+                    }
+                }
+            }
+
+            // Pied de page
+            document.add(Chunk.NEWLINE);
+            Font footerFont = new Font(Font.HELVETICA, 10, Font.ITALIC, new Color(128, 128, 128)); // Gris
+            Paragraph footer = new Paragraph("Document généré le " +
+                    LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")), footerFont);
+            footer.setAlignment(Element.ALIGN_RIGHT);
+            document.add(footer);
+
+            document.close();
+
+            byte[] pdfBytes = baos.toByteArray();
+            System.out.println("PDF généré avec succès, taille: " + pdfBytes.length + " bytes");
+
+            return pdfBytes;
+
+        } catch (Exception e) {
+            System.err.println("Erreur lors de la génération du PDF: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("Erreur lors de la génération du PDF: " + e.getMessage(), e);
+        }
+    }
+
+    private void addSectionTitle(Document document, String title) throws DocumentException {
+        // Correction de la méthode Font
+        Font sectionFont = new Font(Font.HELVETICA, 14, Font.BOLD, new Color(169, 169, 169)); // Gris foncé
+        Paragraph section = new Paragraph(title, sectionFont);
+        section.setSpacingAfter(10);
+        document.add(section);
+    }
+
+    private void addInfoLine(Document document, String label, String value) throws DocumentException {
+        if (value == null) value = "Non spécifié";
+
+        Font labelFont = new Font(Font.HELVETICA, 12, Font.BOLD);
+        Font valueFont = new Font(Font.HELVETICA, 12, Font.NORMAL);
+
+        Paragraph line = new Paragraph();
+        line.add(new Chunk(label + ": ", labelFont));
+        line.add(new Chunk(value, valueFont));
+        line.setSpacingAfter(5);
+        document.add(line);
+    }
+
+    private void addSimpleLine(Document document, String label, String value) throws DocumentException {
+        if (value == null) value = "Non spécifié";
+
+        Paragraph line = new Paragraph();
+        line.add(new Chunk(label + " " + value, new Font(Font.HELVETICA, 12, Font.NORMAL)));
+        line.setSpacingAfter(3);
+        document.add(line);
+    }
+
+    private void addSimpleLine(Document document, String text, int style) throws DocumentException {
+        Paragraph line = new Paragraph(text, new Font(Font.HELVETICA, 12, style));
+        line.setSpacingAfter(3);
+        document.add(line);
+    }
+
+    private String formatDate(LocalDate date) {
+        if (date == null) return "Non spécifié";
+        return date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+    }
+
+    private String formatDate(java.util.Date date) {
+        if (date == null) return "Non spécifié";
+        try {
+            return date.toInstant()
+                    .atZone(java.time.ZoneId.systemDefault())
+                    .toLocalDate()
+                    .format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+        } catch (Exception e) {
+            return date.toString();
+        }
+    }
+
+    private String getSafeString(String value) {
+        return (value != null && !value.trim().isEmpty()) ? value : "Non spécifié";
     }
 }

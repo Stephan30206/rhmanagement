@@ -41,6 +41,9 @@ public class SecurityConfig {
                                 "/api/auth/validate",
                                 "/api/auth/test").permitAll()
 
+                        // ✅ AJOUT: Export PDF public pour test (à sécuriser plus tard)
+                        .requestMatchers("/api/employes/*/export-fiche").permitAll()
+
                         // ✅ Endpoints protégés nécessitant une authentification
                         .requestMatchers("/api/auth/profile",
                                 "/api/auth/me",

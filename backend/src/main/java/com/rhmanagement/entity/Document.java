@@ -15,7 +15,7 @@ import java.time.LocalDate;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Document {
+public class Document extends com.lowagie.text.Document {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -42,6 +42,9 @@ public class Document {
     @JoinColumn(name = "employe_id", nullable = false) // Ceci crée la colonne employe_id
     @JsonIgnore
     private Employe employe;
+
+    public void open() {
+    }
 
     public enum TypeDocument {
         CV, DIPLOME, CERTIFICAT, CONTRAT, PHOTO, LETTRE_CREANCE,
