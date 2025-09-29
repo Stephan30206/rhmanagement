@@ -1192,21 +1192,53 @@ function App() {
         const [loading, setLoading] = useState(true);
         const [error, setError] = useState('');
 
+        // Variables pour la recherche dans les congés
+        const [searchTerm, setSearchTerm] = useState('');
+        const [filteredDemandes, setFilteredDemandes] = useState<any[]>([]);
+
         const loadDemandes = async () => {
             try {
                 setLoading(true);
                 const response = await api.get('/demandes-conge');
                 const data = response.data;
                 setDemandes(Array.isArray(data) ? data : []);
+                setFilteredDemandes(Array.isArray(data) ? data : []);
                 setError('');
             } catch (err: any) {
                 console.error('Erreur lors du chargement des demandes:', err);
                 setError('Erreur lors du chargement des demandes');
                 setDemandes([]);
+                setFilteredDemandes([]);
             } finally {
                 setLoading(false);
             }
         };
+
+        // Filtrage des demandes
+        useEffect(() => {
+            if (!searchTerm.trim()) {
+                setFilteredDemandes(demandes);
+                return;
+            }
+
+            const term = searchTerm.toLowerCase().trim();
+            const filtered = demandes.filter(demande => {
+                const employeNom = demande.employe ?
+                    `${demande.employe.prenom || ''} ${demande.employe.nom || ''}`.toLowerCase() : '';
+                const matricule = demande.employe?.matricule?.toLowerCase() || '';
+                const typeConge = demande.typeConge?.toLowerCase() || '';
+                const statut = demande.statut?.toLowerCase() || '';
+
+                return (
+                    employeNom.includes(term) ||
+                    matricule.includes(term) ||
+                    typeConge.includes(term) ||
+                    statut.includes(term)
+                );
+            });
+
+            setFilteredDemandes(filtered);
+        }, [searchTerm, demandes]);
 
         useEffect(() => {
             loadDemandes();
@@ -1237,7 +1269,7 @@ function App() {
 
             try {
                 await api.delete(`/demandes-conge/${demandeId}`);
-                loadDemandes(); // Recharger la liste
+                loadDemandes();
             } catch (err) {
                 console.error('Erreur lors de la suppression:', err);
                 alert('Erreur lors de la suppression de la demande');
@@ -1247,7 +1279,7 @@ function App() {
         const handleApproveDemande = async (demandeId: number) => {
             try {
                 await api.put(`/demandes-conge/${demandeId}/approve`);
-                loadDemandes(); // Recharger la liste
+                loadDemandes();
             } catch (err) {
                 console.error('Erreur lors de l\'approbation:', err);
                 alert('Erreur lors de l\'approbation de la demande');
@@ -1258,7 +1290,7 @@ function App() {
             const motif = prompt('Motif de rejet (optionnel):');
             try {
                 await api.put(`/demandes-conge/${demandeId}/reject`, { motifRejet: motif });
-                loadDemandes(); // Recharger la liste
+                loadDemandes();
             } catch (err) {
                 console.error('Erreur lors du rejet:', err);
                 alert('Erreur lors du rejet de la demande');
@@ -1321,6 +1353,35 @@ function App() {
                         </button>
                     </div>
 
+                    {/* Barre de recherche pour les congés */}
+                    <div className="bg-white p-4 rounded-lg shadow">
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                            <input
+                                type="text"
+                                placeholder="Rechercher par nom d'employé, type de congé, statut..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm"
+                            />
+                            {searchTerm && (
+                                <button
+                                    onClick={() => setSearchTerm('')}
+                                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                >
+                                    <X className="h-4 w-4" />
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Indicateur de résultats */}
+                        {searchTerm && (
+                            <div className="mt-2 text-sm text-gray-500">
+                                {filteredDemandes.length} demande(s) trouvée(s) pour "{searchTerm}"
+                            </div>
+                        )}
+                    </div>
+
                     {error && (
                         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
                             {error}
@@ -1331,14 +1392,28 @@ function App() {
                         <div className="flex justify-center items-center py-12">
                             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
                         </div>
-                    ) : demandes.length === 0 ? (
+                    ) : filteredDemandes.length === 0 ? (
                         <div className="bg-white shadow overflow-hidden sm:rounded-lg p-6">
                             <div className="text-center py-12">
                                 <Calendar className="mx-auto h-12 w-12 text-gray-400"/>
-                                <h3 className="mt-2 text-lg font-medium text-gray-900">Aucune demande de congé</h3>
+                                <h3 className="mt-2 text-lg font-medium text-gray-900">
+                                    {searchTerm ? 'Aucune demande trouvée' : 'Aucune demande de congé'}
+                                </h3>
                                 <p className="mt-1 text-sm text-gray-500">
-                                    Les demandes de congés apparaitront ici.
+                                    {searchTerm
+                                        ? 'Aucun résultat ne correspond à votre recherche'
+                                        : 'Les demandes de congés apparaitront ici.'
+                                    }
                                 </p>
+                                {!searchTerm && (
+                                    <button
+                                        onClick={handleCreateDemande}
+                                        className="mt-4 inline-flex items-center px-4 py-2 rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+                                    >
+                                        <Plus className="h-4 w-4 mr-2"/>
+                                        Créer une demande
+                                    </button>
+                                )}
                             </div>
                         </div>
                     ) : (
@@ -1364,7 +1439,7 @@ function App() {
                                 </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                {demandes.map((demande) => (
+                                {filteredDemandes.map((demande) => (
                                     <tr key={demande.id} className="hover:bg-gray-50">
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex items-center">
@@ -1394,7 +1469,7 @@ function App() {
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            {demande.typeConge || 'Non spécifié'} {/* Afficher le type de congé */}
+                                            {demande.typeConge || 'Non spécifié'}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                             {demande.dateDebut && demande.dateFin ? (
@@ -1402,15 +1477,15 @@ function App() {
                                                     {new Date(demande.dateDebut).toLocaleDateString('fr-FR')} - {new Date(demande.dateFin).toLocaleDateString('fr-FR')}
                                                     <br/>
                                                     <span className="text-xs text-gray-500">
-                ({calculateDays(demande.dateDebut, demande.dateFin)} jours) {/* Calculer les jours */}
-            </span>
+                                                    ({calculateDays(demande.dateDebut, demande.dateFin)} jours)
+                                                </span>
                                                 </>
                                             ) : 'N/A'}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatutBadgeClass(demande.statut)}`}>
-                        {formatStatut(demande.statut)}
-                      </span>
+                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatutBadgeClass(demande.statut)}`}>
+                                            {formatStatut(demande.statut)}
+                                        </span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium flex space-x-2">
                                             <button

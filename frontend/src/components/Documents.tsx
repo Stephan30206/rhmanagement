@@ -49,6 +49,26 @@ const Documents: React.FC = () => {
     const [documentContent, setDocumentContent] = useState<string>('');
     const [documentLoading, setDocumentLoading] = useState(false);
 
+    const getPosteDisplay = (employe: Employe) => {
+        if (employe.poste === 'AUTRE' && employe.postePersonnalise) {
+            return employe.postePersonnalise;
+        }
+
+        const postes = {
+            'EVANGELISTE': 'Évangéliste',
+            'PASTEUR_STAGIAIRE': 'Pasteur stagiaire',
+            'PASTEUR_AUTORISE': 'Pasteur autorisé',
+            'PASTEUR_CONSACRE': 'Pasteur consacré',
+            'SECRETAIRE_EXECUTIF': 'Secrétaire exécutif',
+            'TRESORIER': 'Trésorier',
+            'ASSISTANT_RH': 'Assistant RH',
+            'VERIFICATEUR': 'Vérificateur',
+            'AUTRE': 'Autre'
+        };
+
+        return postes[employe.poste as keyof typeof postes] || employe.poste;
+    };
+
     // Charger la liste des employés
     const loadEmployes = useCallback(async () => {
         try {
@@ -347,7 +367,8 @@ const Documents: React.FC = () => {
                                             <h3 className="text-xl font-bold text-gray-900">
                                                 {selectedEmploye.prenom} {selectedEmploye.nom}
                                             </h3>
-                                            <p className="text-gray-600">{selectedEmploye.matricule} • {selectedEmploye.poste}</p>
+                                            {/* ✅ CORRECTION : Utiliser getPosteDisplay */}
+                                            <p className="text-gray-600">{selectedEmploye.matricule} • {getPosteDisplay(selectedEmploye)}</p>
                                         </div>
                                     </div>
                                     <button

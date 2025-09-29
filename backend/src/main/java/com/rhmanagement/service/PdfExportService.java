@@ -1,6 +1,8 @@
 package com.rhmanagement.service;
 
+import com.itextpdf.text.Image;
 import com.lowagie.text.Font;
+import com.lowagie.text.Rectangle;
 import com.rhmanagement.entity.Employe;
 import com.rhmanagement.entity.HistoriquePoste;
 import com.rhmanagement.entity.Enfant;
@@ -24,12 +26,11 @@ public class PdfExportService {
 
     public ByteArrayInputStream generateEtatServicePdf(Employe employe, List<HistoriquePoste> historique) {
         try {
-            // 🔹 TRIER LA LISTE PAR DATE DE DÉBUT (CROISSANT). Années ascendantes
+            // 🔹 TRIER LA LISTE PAR DATE DE DÉBUT (CROISSANT)
             List<HistoriquePoste> historiqueTrie = historique.stream()
                     .sorted(Comparator.comparing(HistoriquePoste::getDateDebut))
                     .collect(Collectors.toList());
 
-            // Document A4 en format paysage
             Document document = new Document(PageSize.A4.rotate());
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             PdfWriter.getInstance(document, out);
@@ -46,8 +47,10 @@ public class PdfExportService {
             Font infoFont = FontFactory.getFont(FontFactory.HELVETICA, 12);
             document.add(new Paragraph("Nom : " + employe.getPrenom() + " " + employe.getNom(), infoFont));
             document.add(new Paragraph("Matricule : " + employe.getMatricule(), infoFont));
-            document.add(new Paragraph("Poste actuel : " + employe.getPoste(), infoFont));
-            document.add(new Paragraph(" ")); // espace
+
+            // ✅ CORRECTION : Utiliser getPosteLibelle au lieu de employe.getPoste()
+            document.add(new Paragraph("Poste actuel : " + getPosteLibelle(employe), infoFont));
+            document.add(new Paragraph(" "));
 
             // ====== TABLEAU ÉTAT DE SERVICE ======
             PdfPTable table = new PdfPTable(11);
@@ -76,8 +79,9 @@ public class PdfExportService {
                 // Année
                 table.addCell(createCell(String.valueOf(poste.getDateDebut().getYear())));
 
-                // Poste
-                table.addCell(createCell(poste.getPoste()));
+                // ✅ CORRECTION : Utiliser getPosteLibelle pour l'historique
+                String libellePoste = getPosteLibelleHistorique(poste, employe);
+                table.addCell(createCell(libellePoste));
 
                 // Organisation
                 table.addCell(createCell(poste.getOrganisation()));
@@ -110,22 +114,52 @@ public class PdfExportService {
                 table.addCell(createCell(""));
             }
 
-            // Ajout du tableau au document
             document.add(table);
 
             // ====== SECTION SIGNATURE ======
             document.add(new Paragraph("\n\n"));
-            PdfPTable signatureTable = new PdfPTable(2);
-            signatureTable.setWidthPercentage(100);
-            signatureTable.setSpacingBefore(20);
-            document.add(signatureTable);
-
-            // Fermeture
             document.close();
             return new ByteArrayInputStream(out.toByteArray());
 
         } catch (Exception e) {
             throw new RuntimeException("Erreur lors de la génération du PDF", e);
+        }
+    }
+
+    /**
+     * Retourne le libellé du poste pour l'historique
+     * Si le poste est "AUTRE" et qu'il y a un poste personnalisé, retourne le poste personnalisé
+     * Sinon retourne le libellé correspondant au poste
+     */
+    private String getPosteLibelleHistorique(HistoriquePoste historiquePoste, Employe employe) {
+        // Si c'est "AUTRE" et qu'il y a un poste personnalisé sur l'employé
+        if ("AUTRE".equals(historiquePoste.getPoste()) &&
+                employe.getPostePersonnalise() != null &&
+                !employe.getPostePersonnalise().trim().isEmpty()) {
+            return employe.getPostePersonnalise();
+        }
+
+        // Sinon, utiliser la correspondance des postes
+        return getPosteLibelleFromValue(historiquePoste.getPoste());
+    }
+
+    /**
+     * Retourne le libellé français pour une valeur de poste
+     */
+    private String getPosteLibelleFromValue(String posteValue) {
+        if (posteValue == null) return "Non spécifié";
+
+        switch (posteValue) {
+            case "EVANGELISTE": return "Évangéliste";
+            case "PASTEUR_STAGIAIRE": return "Pasteur stagiaire";
+            case "PASTEUR_AUTORISE": return "Pasteur autorisé";
+            case "PASTEUR_CONSACRE": return "Pasteur consacré";
+            case "SECRETAIRE_EXECUTIF": return "Secrétaire exécutif";
+            case "TRESORIER": return "Trésorier";
+            case "ASSISTANT_RH": return "Assistant RH";
+            case "VERIFICATEUR": return "Vérificateur";
+            case "AUTRE": return "Autre";
+            default: return posteValue;
         }
     }
 
@@ -137,94 +171,233 @@ public class PdfExportService {
 
             document.open();
 
+            // ====== EN-TÊTE AVEC PHOTO ======
+            PdfPTable headerTable = new PdfPTable(2);
+            headerTable.setWidthPercentage(100);
+            headerTable.setWidths(new float[]{1, 3}); // Photo à gauche, informations à droite
+
+            // Cellule pour la photo
+            PdfPCell photoCell = new PdfPCell();
+            photoCell.setBorder(Rectangle.NO_BORDER);
+            photoCell.setHorizontalAlignment(Element.ALIGN_CENTER);
+            photoCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+            photoCell.setPadding(10);
+
+            // Ajouter la photo si elle existe
+            boolean photoLoaded = false;
+            if (employe.getPhotoProfil() != null && !employe.getPhotoProfil().isEmpty()) {
+                try {
+                    // Charger l'image depuis le système de fichiers
+                    Image photo = Image.getInstance("uploads/" + employe.getPhotoProfil());
+                    photo.scaleToFit(80, 100); // Taille fixe pour la photo
+                    photoCell.addElement((Element) photo);
+                } catch (Exception e) {
+                    // Si l'image ne peut pas être chargée, afficher un placeholder
+                    Paragraph placeholder = new Paragraph("Photo\nnon disponible",
+                            FontFactory.getFont(FontFactory.HELVETICA, 10));
+                    placeholder.setAlignment(Element.ALIGN_CENTER);
+                    photoCell.addElement(placeholder);
+                }
+            } else {
+                // Aucune photo disponible
+                Paragraph noPhoto = new Paragraph("Aucune\nphoto",
+                        FontFactory.getFont(FontFactory.HELVETICA, 10));
+                noPhoto.setAlignment(Element.ALIGN_CENTER);
+                photoCell.addElement(noPhoto);
+            }
+
+            // Cellule pour les informations principales
+            PdfPCell infoCell = new PdfPCell();
+            infoCell.setBorder(Rectangle.NO_BORDER);
+            infoCell.setPadding(10);
+
             // Titre principal
-            Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 18);
-            titleFont.setColor(Color.BLUE);
+            Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 16);
             Paragraph title = new Paragraph("FICHE EMPLOYÉ", titleFont);
             title.setAlignment(Element.ALIGN_CENTER);
-            title.setSpacingAfter(20);
-            document.add(title);
+            title.setSpacingAfter(10);
 
-            // Section 1: Informations personnelles
-            addSectionTitle(document, "INFORMATIONS PERSONNELLES");
-            addInfoLine(document, "Nom complet", employe.getPrenom() + " " + employe.getNom());
-            addInfoLine(document, "Matricule", employe.getMatricule());
-            addInfoLine(document, "Date de naissance", formatDate(employe.getDateNaissance()));
-            addInfoLine(document, "Lieu de naissance", getSafeString(employe.getLieuNaissance()));
-            addInfoLine(document, "CIN", getSafeString(employe.getCin()));
-            addInfoLine(document, "Nationalité", getSafeString(employe.getNationalite()));
-            addInfoLine(document, "Statut matrimonial", getStatutMatrimonialLibelle(employe.getStatutMatrimonial()));
-            addInfoLine(document, "Numéro CNAPS", getSafeString(employe.getNumeroCNAPS()));
-            addInfoLine(document, "Nom du père", getSafeString(employe.getNomPere()));
-            addInfoLine(document, "Nom de la mère", getSafeString(employe.getNomMere()));
+            // Informations principales
+            Font infoFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
+            Paragraph nomComplet = new Paragraph(employe.getPrenom() + " " + employe.getNom(), infoFont);
+            Paragraph matricule = new Paragraph("Matricule: " + getSafeString(employe.getMatricule()),
+                    FontFactory.getFont(FontFactory.HELVETICA, 10));
+            Paragraph poste = new Paragraph("Poste: " + getPosteLibelle(employe),
+                    FontFactory.getFont(FontFactory.HELVETICA, 10));
 
+            infoCell.addElement(title);
+            infoCell.addElement(nomComplet);
+            infoCell.addElement(matricule);
+            infoCell.addElement(poste);
+
+            headerTable.addCell(photoCell);
+            headerTable.addCell(infoCell);
+            document.add(headerTable);
+
+            document.add(new Paragraph(" ")); // Espacement
+
+            // ====== INFORMATIONS PERSONNELLES ======
+            Font sectionFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
+            Paragraph section1 = new Paragraph("INFORMATIONS PERSONNELLES", sectionFont);
+            section1.setSpacingAfter(10);
+            document.add(section1);
+
+            // Tableau pour les informations personnelles
+            PdfPTable table1 = new PdfPTable(4);
+            table1.setWidthPercentage(100);
+            table1.setWidths(new float[]{1, 2, 1, 2});
+
+            addSimpleTableRow(table1, "Nom", getSafeString(employe.getNom()));
+            addSimpleTableRow(table1, "Prénom", getSafeString(employe.getPrenom()));
+            addSimpleTableRow(table1, "Date de naissance", formatDate(employe.getDateNaissance()));
+            addSimpleTableRow(table1, "Lieu de naissance", getSafeString(employe.getLieuNaissance()));
+            addSimpleTableRow(table1, "Nationalité", getSafeString(employe.getNationalite()));
+            addSimpleTableRow(table1, "Numéro CIN", getSafeString(employe.getCin()));
+            addSimpleTableRow(table1, "Adresse", getSafeString(employe.getAdresse()));
+            addSimpleTableRow(table1, "Téléphone", getSafeString(employe.getTelephone()));
+            addSimpleTableRow(table1, "Email", getSafeString(employe.getEmail()));
+            addSimpleTableRow(table1, "Statut matrimonial", getStatutMatrimonialLibelle(employe.getStatutMatrimonial()));
+            addSimpleTableRow(table1, "Nom du père", getSafeString(employe.getNomPere()));
+            addSimpleTableRow(table1, "Nom de la mère", getSafeString(employe.getNomMere()));
+            addSimpleTableRow(table1, "Numéro CNAPS", getSafeString(employe.getNumeroCNAPS()));
+
+            document.add(table1);
+
+            // Ligne de séparation
+            document.add(new Paragraph("---"));
             document.add(new Paragraph(" "));
 
-            // Section 2: Informations de contact
-            addSectionTitle(document, "INFORMATIONS DE CONTACT");
-            addInfoLine(document, "Adresse", getSafeString(employe.getAdresse()));
-            addInfoLine(document, "Téléphone", getSafeString(employe.getTelephone()));
-            addInfoLine(document, "Email", getSafeString(employe.getEmail()));
+            // ====== CONTACT D'URGENCE ======
+            Paragraph section2 = new Paragraph("CONTACT D'URGENCE", sectionFont);
+            section2.setSpacingAfter(10);
+            document.add(section2);
 
+            // Tableau pour contact d'urgence avec en-têtes
+            PdfPTable table2 = new PdfPTable(3);
+            table2.setWidthPercentage(100);
+            table2.setWidths(new float[]{1, 1, 1});
+
+            // En-têtes
+            addTableHeader(table2, "Nom");
+            addTableHeader(table2, "Lien avec l'employé");
+            addTableHeader(table2, "Téléphone");
+
+            // Données
+            addSimpleCell(table2, getSafeString(employe.getContactUrgenceNom()));
+            addSimpleCell(table2, getSafeString(employe.getContactUrgenceLien()));
+            addSimpleCell(table2, getSafeString(employe.getContactUrgenceTelephone()));
+
+            document.add(table2);
+
+            document.add(new Paragraph("---"));
             document.add(new Paragraph(" "));
 
-            // Section 3: Contact d'urgence
-            addSectionTitle(document, "CONTACT D'URGENCE");
-            addInfoLine(document, "Nom", getSafeString(employe.getContactUrgenceNom()));
-            addInfoLine(document, "Lien", getSafeString(employe.getContactUrgenceLien()));
-            addInfoLine(document, "Téléphone", getSafeString(employe.getContactUrgenceTelephone()));
+            // ====== INFORMATIONS PROFESSIONNELLES ======
+            Paragraph section3 = new Paragraph("INFORMATIONS PROFESSIONNELLES", sectionFont);
+            section3.setSpacingAfter(10);
+            document.add(section3);
 
+            PdfPTable table3 = new PdfPTable(4);
+            table3.setWidthPercentage(100);
+            table3.setWidths(new float[]{1, 2, 1, 2});
+
+            addSimpleTableRow(table3, "Matricule", getSafeString(employe.getMatricule()));
+            addSimpleTableRow(table3, "Poste", getPosteLibelle(employe));
+            addSimpleTableRow(table3, "Catégorie", getStatutEmployeLibelle(employe.getStatut()));
+            addSimpleTableRow(table3, "Organisation employeur", getSafeString(employe.getOrganisationEmployeur()));
+            addSimpleTableRow(table3, "Type de contrat", getTypeContratLibelle(employe.getTypeContrat()));
+            addSimpleTableRow(table3, "Date de début du contrat", formatDate(employe.getDateDebut()));
+            addSimpleTableRow(table3, "Date de fin (si applicable)", formatDate(employe.getDateFin()));
+            addSimpleTableRow(table3, "Salaire de base", formatSalaire(employe.getSalaireBase()));
+            addSimpleTableRow(table3, "Pourcentage salaire", formatPourcentage(employe.getPourcentageSalaire()));
+            addSimpleTableRow(table3, "Superviseur hiérarchique", getSafeString(employe.getSuperviseurHierarchique()));
+            addSimpleTableRow(table3, "Affectation actuelle", getSafeString(employe.getAffectationActuelle()));
+
+            document.add(table3);
+
+            document.add(new Paragraph("---"));
             document.add(new Paragraph(" "));
 
-            // Section 4: Informations professionnelles
-            addSectionTitle(document, "INFORMATIONS PROFESSIONNELLES");
-            addInfoLine(document, "Poste", getPosteLibelle(employe));
-            addInfoLine(document, "Statut", getStatutEmployeLibelle(employe.getStatut()));
-            addInfoLine(document, "Type de contrat", getTypeContratLibelle(employe.getTypeContrat()));
-            addInfoLine(document, "Organisation employeur", getSafeString(employe.getOrganisationEmployeur()));
-            addInfoLine(document, "Date de début", formatDate(employe.getDateDebut()));
-            addInfoLine(document, "Date de fin", formatDate(employe.getDateFin()));
-            addInfoLine(document, "Salaire base", formatSalaire(employe.getSalaireBase()));
-            addInfoLine(document, "Pourcentage salaire", formatPourcentage(employe.getPourcentageSalaire()));
-            addInfoLine(document, "Superviseur hiérarchique", getSafeString(employe.getSuperviseurHierarchique()));
-            addInfoLine(document, "Affectation actuelle", getSafeString(employe.getAffectationActuelle()));
+            // ====== ACCRÉDITATION ======
+            Paragraph section4 = new Paragraph("ACCRÉDITATION", sectionFont);
+            section4.setSpacingAfter(10);
+            document.add(section4);
 
+            PdfPTable table4 = new PdfPTable(4);
+            table4.setWidthPercentage(100);
+            table4.setWidths(new float[]{1, 2, 1, 2});
+
+            addSimpleTableRow(table4, "Date d'accréditation", formatDate(employe.getDateAccreditation()));
+            addSimpleTableRow(table4, "Niveau d'accréditation", getSafeString(String.valueOf(employe.getNiveauAccreditation())));
+            addSimpleTableRow(table4, "Groupe d'accréditation", getSafeString(employe.getGroupeAccreditation()));
+
+            document.add(table4);
+
+            document.add(new Paragraph("---"));
             document.add(new Paragraph(" "));
 
-            // Section 5: Accréditation
-            addSectionTitle(document, "ACCRÉDITATION");
-            addInfoLine(document, "Date d'accréditation", formatDate(employe.getDateAccreditation()));
-            addInfoLine(document, "Niveau d'accréditation", getSafeString(String.valueOf(employe.getNiveauAccreditation())));
-            addInfoLine(document, "Groupe d'accréditation", getSafeString(employe.getGroupeAccreditation()));
+            // ====== SUIVI ======
+            Paragraph section5 = new Paragraph("SUIVI", sectionFont);
+            section5.setSpacingAfter(10);
+            document.add(section5);
 
-            // Section 6: Informations familiales (si marié)
+            PdfPTable table5 = new PdfPTable(4);
+            table5.setWidthPercentage(100);
+            table5.setWidths(new float[]{1, 2, 1, 2});
+
+            LocalDate now = LocalDate.now();
+            addSimpleTableRow(table5, "Date de création de la fiche", formatDate(now));
+            addSimpleTableRow(table5, "Dernière mise à jour", formatDate(now));
+            addSimpleTableRow(table5, "Créé par", "RH");
+            addSimpleTableRow(table5, "Mis à jour par", "RH");
+
+            document.add(table5);
+
+            // ====== INFORMATIONS FAMILIALES (si marié) ======
             if (employe.getStatutMatrimonial() != null &&
                     employe.getStatutMatrimonial().name().equals("MARIE")) {
 
+                document.add(new Paragraph("---"));
                 document.add(new Paragraph(" "));
-                addSectionTitle(document, "INFORMATIONS FAMILIALES");
-                addInfoLine(document, "Nom du conjoint", getSafeString(employe.getNomConjoint()));
-                addInfoLine(document, "Date de mariage", formatDate(employe.getDateMariage()));
-                addInfoLine(document, "Date de naissance du conjoint", formatDate(employe.getDateNaissanceConjoint()));
-                addInfoLine(document, "Nombre d'enfants", String.valueOf(enfants != null ? enfants.size() : 0));
+
+                Paragraph section6 = new Paragraph("INFORMATIONS FAMILIALES", sectionFont);
+                section6.setSpacingAfter(10);
+                document.add(section6);
+
+                PdfPTable table6 = new PdfPTable(4);
+                table6.setWidthPercentage(100);
+                table6.setWidths(new float[]{1, 2, 1, 2});
+
+                addSimpleTableRow(table6, "Nom du conjoint", getSafeString(employe.getNomConjoint()));
+                addSimpleTableRow(table6, "Date de mariage", formatDate(employe.getDateMariage()));
+                addSimpleTableRow(table6, "Date de naissance du conjoint", formatDate(employe.getDateNaissanceConjoint()));
+                addSimpleTableRow(table6, "Nombre d'enfants", String.valueOf(enfants != null ? enfants.size() : 0));
+
+                document.add(table6);
 
                 // Liste des enfants
                 if (enfants != null && !enfants.isEmpty()) {
                     document.add(new Paragraph(" "));
                     Paragraph enfantsTitle = new Paragraph("Liste des enfants:",
-                            FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12));
-                    enfantsTitle.setSpacingAfter(5);
+                            FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10));
                     document.add(enfantsTitle);
 
                     for (Enfant enfant : enfants) {
-                        addSimpleLine(document, "• " + getSafeString(enfant.getNom()) +
-                                " - Né(e) le " + formatDate(enfant.getDateNaissance()));
+                        Paragraph enfantInfo = new Paragraph("• " + getSafeString(enfant.getNom()) +
+                                " - Né(e) le " + formatDate(enfant.getDateNaissance()),
+                                FontFactory.getFont(FontFactory.HELVETICA, 10));
+                        document.add(enfantInfo);
                     }
                 }
             }
 
             // Pied de page
-            addFooter(document);
+            document.add(new Paragraph(" "));
+            Font footerFont = FontFactory.getFont(FontFactory.HELVETICA_OBLIQUE, 8);
+            Paragraph footer = new Paragraph("Document généré le " +
+                    LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")), footerFont);
+            footer.setAlignment(Element.ALIGN_RIGHT);
+            document.add(footer);
 
             document.close();
             return new ByteArrayInputStream(out.toByteArray());
@@ -235,16 +408,60 @@ public class PdfExportService {
     }
 
     // ====== MÉTHODES UTILITAIRES ======
+
+    private void addSimpleTableRow(PdfPTable table, String label, String value) {
+        // Cellule label
+        PdfPCell labelCell = new PdfPCell(new Phrase(label,
+                FontFactory.getFont(FontFactory.HELVETICA, 10)));
+        labelCell.setBorder(Rectangle.NO_BORDER);
+        labelCell.setPadding(5);
+        table.addCell(labelCell);
+
+        // Cellule valeur
+        PdfPCell valueCell = new PdfPCell(new Phrase(value != null ? value : "Non spécifié",
+                FontFactory.getFont(FontFactory.HELVETICA, 10)));
+        valueCell.setBorder(Rectangle.NO_BORDER);
+        valueCell.setPadding(5);
+        table.addCell(valueCell);
+    }
+
+    private void addTableHeader(PdfPTable table, String header) {
+        PdfPCell headerCell = new PdfPCell(new Phrase(header,
+                FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10)));
+        headerCell.setBorder(Rectangle.NO_BORDER);
+        headerCell.setPadding(5);
+        headerCell.setBackgroundColor(new Color(240, 240, 240));
+        table.addCell(headerCell);
+    }
+
+    private void addSimpleCell(PdfPTable table, String content) {
+        PdfPCell cell = new PdfPCell(new Phrase(content != null ? content : "Non spécifié",
+                FontFactory.getFont(FontFactory.HELVETICA, 10)));
+        cell.setBorder(Rectangle.NO_BORDER);
+        cell.setPadding(5);
+        table.addCell(cell);
+    }
+
     private PdfPCell createCell(String content) {
         PdfPCell cell = new PdfPCell(new Phrase(content, FontFactory.getFont(FontFactory.HELVETICA, 9)));
         cell.setHorizontalAlignment(Element.ALIGN_CENTER);
         cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+        cell.setPadding(3);
         return cell;
     }
 
     private String formatCurrency(Number amount) {
-        if (amount == null) return "0";
-        return String.format("%,.0f MGA", amount.doubleValue());
+        if (amount == null) return "0 MGA";
+        try {
+            if (amount instanceof java.math.BigDecimal) {
+                java.math.BigDecimal bd = (java.math.BigDecimal) amount;
+                return String.format("%,.0f MGA", bd.doubleValue());
+            } else {
+                return String.format("%,d MGA", amount.longValue());
+            }
+        } catch (Exception e) {
+            return amount.toString() + " MGA";
+        }
     }
 
     private Double calculateSalaireTempsPartiel(HistoriquePoste poste) {
@@ -254,62 +471,52 @@ public class PdfExportService {
     }
 
     private Double calculateSalaireHeure(HistoriquePoste poste) {
-        // Supposons 173.33 heures par mois (35h/semaine * 52 semaines / 12 mois)
         double heuresMensuelles = 173.33;
         Double salaireTempsPartiel = calculateSalaireTempsPartiel(poste);
         return salaireTempsPartiel / heuresMensuelles;
     }
 
-    // Méthodes utilitaires pour la fiche employé
-    private void addSectionTitle(Document document, String titleText) throws DocumentException {
-        Font font = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 14);
-        font.setColor(Color.DARK_GRAY);
-        Paragraph title = new Paragraph(titleText, font);
-        title.setSpacingAfter(10);
-        document.add(title);
-    }
-
-    private void addInfoLine(Document document, String label, String value) throws DocumentException {
-        if (value == null) value = "Non spécifié";
-
-        Font labelFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
-        Font valueFont = FontFactory.getFont(FontFactory.HELVETICA, 12);
-
-        Paragraph line = new Paragraph();
-        line.add(new Chunk(label + ": ", labelFont));
-        line.add(new Chunk(value, valueFont));
-        line.setSpacingAfter(5);
-        document.add(line);
-    }
-
-    private void addSimpleLine(Document document, String text) throws DocumentException {
-        Paragraph line = new Paragraph(text,
-                FontFactory.getFont(FontFactory.HELVETICA, 12));
-        line.setSpacingAfter(3);
-        document.add(line);
-    }
-
-    private void addFooter(Document document) throws DocumentException {
-        document.add(new Paragraph(" "));
-        Font footerFont = FontFactory.getFont(FontFactory.HELVETICA_OBLIQUE, 10);
-        footerFont.setColor(Color.GRAY);
-        Paragraph footer = new Paragraph("Document généré le " +
-                LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")), footerFont);
-        footer.setAlignment(Element.ALIGN_RIGHT);
-        document.add(footer);
-    }
-
     private String getPosteLibelle(Employe employe) {
+        // Si c'est "AUTRE" et qu'il y a un poste personnalisé
         if (employe.getPoste() == Employe.Poste.AUTRE &&
                 employe.getPostePersonnalise() != null &&
                 !employe.getPostePersonnalise().trim().isEmpty()) {
             return employe.getPostePersonnalise();
         }
-        return employe.getPoste() != null ? employe.getPoste().name() : "Non spécifié";
+
+        // Sinon, utiliser la correspondance des postes
+        return getPosteLibelleFromEnum(employe.getPoste());
+    }
+
+    /**
+     * Retourne le libellé français pour un enum Poste
+     */
+    private String getPosteLibelleFromEnum(Employe.Poste poste) {
+        if (poste == null) return "Non spécifié";
+
+        switch (poste) {
+            case EVANGELISTE: return "Évangéliste";
+            case PASTEUR_STAGIAIRE: return "Pasteur stagiaire";
+            case PASTEUR_AUTORISE: return "Pasteur autorisé";
+            case PASTEUR_CONSACRE: return "Pasteur consacré";
+            case SECRETAIRE_EXECUTIF: return "Secrétaire exécutif";
+            case TRESORIER: return "Trésorier";
+            case ASSISTANT_RH: return "Assistant RH";
+            case VERIFICATEUR: return "Vérificateur";
+            case AUTRE: return "Autre";
+            default: return poste.name();
+        }
     }
 
     private String getStatutMatrimonialLibelle(Employe.StatutMatrimonial statut) {
-        return statut != null ? statut.name() : "Non spécifié";
+        if (statut == null) return "Non spécifié";
+        switch (statut.name()) {
+            case "MARIE": return "Marié(e)";
+            case "CELIBATAIRE": return "Célibataire";
+            case "DIVORCE": return "Divorcé(e)";
+            case "VEUF": return "Veuf/Veuve";
+            default: return statut.name();
+        }
     }
 
     private String getStatutEmployeLibelle(Employe.StatutEmploye statut) {
@@ -317,7 +524,14 @@ public class PdfExportService {
     }
 
     private String getTypeContratLibelle(Employe.TypeContrat contrat) {
-        return contrat != null ? contrat.name() : "Non spécifié";
+        if (contrat == null) return "Non spécifié";
+        switch (contrat.name()) {
+            case "CDI": return "CDI";
+            case "CDD": return "CDD";
+            case "STAGE": return "Stage";
+            case "INTERIM": return "Intérim";
+            default: return contrat.name();
+        }
     }
 
     private String formatDate(LocalDate date) {

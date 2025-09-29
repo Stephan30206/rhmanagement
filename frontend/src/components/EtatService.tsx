@@ -32,6 +32,48 @@ const EtatService: React.FC = () => {
         }
     }, [selectedEmploye]);
 
+    // Ajouter cette fonction dans le composant EtatService
+    const getPosteName = (historiqueItem: HistoriquePoste, employe: Employe) => {
+        // Si c'est l'historique actuel et que l'employé a un poste personnalisé
+        if (historiqueItem.poste === 'AUTRE' && employe.postePersonnalise) {
+            return employe.postePersonnalise;
+        }
+
+        // Sinon, utiliser la correspondance habituelle
+        const postes = {
+            'EVANGELISTE': 'Évangéliste',
+            'PASTEUR_STAGIAIRE': 'Pasteur stagiaire',
+            'PASTEUR_AUTORISE': 'Pasteur autorisé',
+            'PASTEUR_CONSACRE': 'Pasteur consacré',
+            'SECRETAIRE_EXECUTIF': 'Secrétaire exécutif',
+            'TRESORIER': 'Trésorier',
+            'ASSISTANT_RH': 'Assistant RH',
+            'VERIFICATEUR': 'Vérificateur',
+            'AUTRE': 'Autre'
+        };
+
+        return postes[historiqueItem.poste as keyof typeof postes] || historiqueItem.poste;
+    };
+
+    const getPosteDisplay = (employe: Employe) => {
+        if (employe.poste === 'AUTRE' && employe.postePersonnalise) {
+            return employe.postePersonnalise;
+        }
+
+        const postes = {
+            'EVANGELISTE': 'Évangéliste',
+            'PASTEUR_STAGIAIRE': 'Pasteur stagiaire',
+            'PASTEUR_AUTORISE': 'Pasteur autorisé',
+            'PASTEUR_CONSACRE': 'Pasteur consacré',
+            'SECRETAIRE_EXECUTIF': 'Secrétaire exécutif',
+            'TRESORIER': 'Trésorier',
+            'ASSISTANT_RH': 'Assistant RH',
+            'VERIFICATEUR': 'Vérificateur',
+            'AUTRE': 'Autre'
+        };
+
+        return postes[employe.poste as keyof typeof postes] || employe.poste;
+    };
     const loadEmployes = async () => {
         try {
             const data = await employeService.getAllEmployes();
@@ -240,7 +282,9 @@ const EtatService: React.FC = () => {
                                         <h3 className="text-xl font-bold text-gray-900">
                                             {selectedEmploye.prenom} {selectedEmploye.nom}
                                         </h3>
-                                        <p className="text-gray-600">{selectedEmploye.matricule} • {selectedEmploye.poste}</p>
+                                        <p className="text-gray-600">
+                                            {selectedEmploye.matricule} • {getPosteDisplay(selectedEmploye)}
+                                        </p>
                                     </div>
                                 </div>
                                 <button
@@ -290,7 +334,9 @@ const EtatService: React.FC = () => {
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div className="text-sm text-gray-900">{item.poste}</div>
+                                                    <div className="text-sm text-gray-900">
+                                                        {getPosteName(item, selectedEmploye)}
+                                                    </div>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     <div className="text-sm text-gray-900">{item.organisation}</div>
@@ -362,6 +408,28 @@ const EtatService: React.FC = () => {
     );
 };
 
+const getPosteDisplayForm = (employe: Employe, posteValue: string) => {
+    // Si c'est le poste actuel et qu'il y a un poste personnalisé
+    if (posteValue === 'AUTRE' && employe.postePersonnalise) {
+        return employe.postePersonnalise;
+    }
+
+    // Sinon, utiliser la correspondance
+    const postes = {
+        'EVANGELISTE': 'Évangéliste',
+        'PASTEUR_STAGIAIRE': 'Pasteur stagiaire',
+        'PASTEUR_AUTORISE': 'Pasteur autorisé',
+        'PASTEUR_CONSACRE': 'Pasteur consacré',
+        'SECRETAIRE_EXECUTIF': 'Secrétaire exécutif',
+        'TRESORIER': 'Trésorier',
+        'ASSISTANT_RH': 'Assistant RH',
+        'VERIFICATEUR': 'Vérificateur',
+        'AUTRE': 'Autre'
+    };
+
+    return postes[posteValue as keyof typeof postes] || posteValue;
+};
+
 // Formulaire d'ajout/modification historique
 const HistoriqueForm: React.FC<{
     historique: HistoriquePoste | null;
@@ -404,7 +472,7 @@ const HistoriqueForm: React.FC<{
                             <label className="block text-sm font-medium text-gray-700">Poste</label>
                             <input
                                 type="text"
-                                value={formData.poste}
+                                value={getPosteDisplayForm(selectedEmploye, formData.poste)}
                                 readOnly
                                 className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 bg-gray-100 cursor-not-allowed"
                             />

@@ -259,19 +259,39 @@ public class EmployeService {
                 !employe.getPostePersonnalise().trim().isEmpty()) {
             return employe.getPostePersonnalise();
         }
-        return employe.getPoste().name();
+
+        // Mapping des postes standards
+        Map<Employe.Poste, String> postesLabels = Map.of(
+                Employe.Poste.EVANGELISTE, "Évangéliste",
+                Employe.Poste.PASTEUR_STAGIAIRE, "Pasteur stagiaire",
+                Employe.Poste.PASTEUR_AUTORISE, "Pasteur autorisé",
+                Employe.Poste.PASTEUR_CONSACRE, "Pasteur consacré",
+                Employe.Poste.SECRETAIRE_EXECUTIF, "Secrétaire exécutif",
+                Employe.Poste.TRESORIER, "Trésorier",
+                Employe.Poste.ASSISTANT_RH, "Assistant RH",
+                Employe.Poste.VERIFICATEUR, "Vérificateur",
+                Employe.Poste.AUTRE, "Autre"
+        );
+
+        return postesLabels.getOrDefault(employe.getPoste(), employe.getPoste().name());
     }
 
     public Employe saveEmploye(Employe employe) {
+        // Génération matricule si nécessaire
         if (employe.getMatricule() == null || employe.getMatricule().isEmpty()) {
             employe.setMatricule(generateMatricule());
         }
 
-        if (employe.getPoste() == Employe.Poste.AUTRE &&
-                employe.getPostePersonnalise() != null &&
-                !employe.getPostePersonnalise().trim().isEmpty()) {
+        // Gestion cohérente du poste personnalisé
+        if (employe.getPoste() == Employe.Poste.AUTRE) {
+            // Valider que le poste personnalisé est renseigné
+            if (employe.getPostePersonnalise() == null ||
+                    employe.getPostePersonnalise().trim().isEmpty()) {
+                throw new RuntimeException("Un poste personnalisé doit être spécifié lorsque 'AUTRE' est sélectionné");
+            }
             employe.setPostePersonnalise(employe.getPostePersonnalise().trim());
-        } else if (employe.getPoste() != Employe.Poste.AUTRE) {
+        } else {
+            // Nettoyer le poste personnalisé si ce n'est pas "AUTRE"
             employe.setPostePersonnalise(null);
         }
 

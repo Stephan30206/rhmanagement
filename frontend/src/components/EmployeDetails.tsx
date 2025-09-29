@@ -160,6 +160,7 @@ const EmployeDetails: React.FC<EmployeDetailsProps> = ({ employe, onClose, onEdi
         }
     };
 
+// Remplacer getPosteName par :
     const getPosteName = (employe: any) => {
         // Si c'est AUTRE et qu'il y a un poste personnalisé, afficher le poste personnalisé
         if (employe.poste === 'AUTRE' && employe.postePersonnalise) {
@@ -168,14 +169,10 @@ const EmployeDetails: React.FC<EmployeDetailsProps> = ({ employe, onClose, onEdi
 
         // Sinon, utiliser la correspondance habituelle
         const postes = {
-            'PASTEUR_TITULAIRE': 'Pasteur titulaire',
             'PASTEUR_STAGIAIRE': 'Pasteur stagiaire',
             'PASTEUR_AUTORISE': 'Pasteur autorisé',
             'PASTEUR_CONSACRE': 'Pasteur consacré',
             'EVANGELISTE': 'Évangéliste',
-            'ANCIEN': 'Ancien',
-            'MISSIONNAIRE': 'Missionnaire',
-            'ENSEIGNANT': 'Enseignant',
             'SECRETAIRE_EXECUTIF': 'Secrétaire exécutif',
             'TRESORIER': 'Trésorier',
             'ASSISTANT_RH': 'Assistant RH',

@@ -57,8 +57,7 @@ const EmployeForm: React.FC<EmployeFormProps> = ({ employe, onClose, onSave }) =
         groupeAccreditation: '',
         superviseurHierarchique: '',
         affectationActuelle: '',
-        postePersonnalise: '',
-        nouveauPoste: ''
+        postePersonnalise: ''
     });
 
     const [enfants, setEnfants] = useState<Enfant[]>([]);
@@ -226,7 +225,6 @@ const EmployeForm: React.FC<EmployeFormProps> = ({ employe, onClose, onSave }) =
                 nomMere: employe.nomMere || '',
                 poste: employe.poste || 'PASTEUR_STAGIAIRE',
                 postePersonnalise: employe.postePersonnalise || '',
-                nouveauPoste: employe.nouveauPoste || '',
                 organisationEmployeur: employe.organisationEmployeur || '',
                 typeContrat: employe.typeContrat || 'CDD',
                 dateDebut: employe.dateDebut || '',
@@ -332,7 +330,7 @@ const EmployeForm: React.FC<EmployeFormProps> = ({ employe, onClose, onSave }) =
 
         try {
             // Validation pour le nouveau poste
-            if (formData.poste === 'AUTRE' && !formData.nouveauPoste?.trim()) {
+            if (formData.poste === 'AUTRE' && !formData.postePersonnalise?.trim()) {
                 setError('Veuillez spécifier le nouveau poste');
                 setLoading(false);
                 return;
@@ -341,7 +339,7 @@ const EmployeForm: React.FC<EmployeFormProps> = ({ employe, onClose, onSave }) =
             const employeData = {
                 ...formData,
                 poste: formData.poste, // Garder "AUTRE" si sélectionné
-                postePersonnalise: formData.poste === 'AUTRE' ? formData.nouveauPoste?.trim() : null,
+                postePersonnalise: formData.poste === 'AUTRE' ? formData.postePersonnalise?.trim() : null,
                 salaireBase: formData.salaireBase ? parseFloat(formData.salaireBase) : 0,
                 pourcentageSalaire: formData.pourcentageSalaire ? parseFloat(formData.pourcentageSalaire) : 0,
                 dateMariage: formData.dateMariage || null,
@@ -353,7 +351,7 @@ const EmployeForm: React.FC<EmployeFormProps> = ({ employe, onClose, onSave }) =
             };
 
             // Créer une copie sans le champ nouveauPoste
-            const { nouveauPoste, ...employeDataToSend } = employeData;
+            const { postePersonnalise, ...employeDataToSend } = employeData;
 
             let savedEmploye: Employe;
 
@@ -944,8 +942,8 @@ const EmployeForm: React.FC<EmployeFormProps> = ({ employe, onClose, onSave }) =
                                 <label className="block text-sm font-medium text-gray-700">Spécifier le nouveau poste *</label>
                                 <input
                                     type="text"
-                                    name="nouveauPoste"
-                                    value={formData.nouveauPoste || ''}
+                                    name="postePersonnalise"
+                                    value={formData.postePersonnalise || ''}
                                     onChange={handleChange}
                                     required
                                     placeholder="Entrez le nom du nouveau poste"
