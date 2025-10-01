@@ -77,6 +77,8 @@ const EmployeDetails: React.FC<EmployeDetailsProps> = ({ employe, onClose, onEdi
             try {
                 const data = await employeService.getEmployeById(employe.id);
                 console.log('Détails employé:', data);
+                console.log('Nom conjoint:', data.nomConjoint);
+                console.log('Date naissance conjoint:', data.dateNaissanceConjoint);
                 setDetails(data);
                 setStatutReelEmploye(data.statut);
 
@@ -363,7 +365,7 @@ const EmployeDetails: React.FC<EmployeDetailsProps> = ({ employe, onClose, onEdi
                 </div>
 
                 {/* Informations familiales */}
-                {details.statutMatrimonial === 'MARIE' && (
+                {(details.statutMatrimonial === 'MARIE' || employe.statutMatrimonial === 'MARIE') && (
                     <div>
                         <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
                             <Users className="w-5 h-5 mr-2" />
@@ -372,15 +374,15 @@ const EmployeDetails: React.FC<EmployeDetailsProps> = ({ employe, onClose, onEdi
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             <div>
                                 <label className="text-sm font-medium text-gray-500">Date de mariage</label>
-                                <p className="text-gray-900">{formatDate(details.dateMariage)}</p>
+                                <p className="text-gray-900">{formatDate(details.dateMariage || employe.dateMariage)}</p>
                             </div>
                             <div>
                                 <label className="text-sm font-medium text-gray-500">Nom du conjoint</label>
-                                <p className="text-gray-900">{details.nomConjoint || 'Nom spécifié'}</p>
+                                <p className="text-gray-900">{details.nomConjoint || employe.nomConjoint || 'Non spécifié'}</p>
                             </div>
                             <div>
                                 <label className="text-sm font-medium text-gray-500">Date de naissance du conjoint</label>
-                                <p className="text-gray-900">{formatDate(details.dateNaissanceConjoint)}</p>
+                                <p className="text-gray-900">{formatDate(details.dateNaissanceConjoint || employe.dateNaissanceConjoint)}</p>
                             </div>
                             <div>
                                 <label className="text-sm font-medium text-gray-500">Nombre d'enfants</label>

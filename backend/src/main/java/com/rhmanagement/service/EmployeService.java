@@ -67,6 +67,8 @@ public class EmployeService {
         employe.setNumeroCNAPS(employeDetails.getNumeroCNAPS());
         employe.setStatutMatrimonial(employeDetails.getStatutMatrimonial());
         employe.setDateMariage(employeDetails.getDateMariage());
+        employe.setNomConjoint(employeDetails.getNomConjoint());
+        employe.setDateNaissanceConjoint(employeDetails.getDateNaissanceConjoint());
         employe.setContactUrgenceNom(employeDetails.getContactUrgenceNom());
         employe.setContactUrgenceLien(employeDetails.getContactUrgenceLien());
         employe.setContactUrgenceTelephone(employeDetails.getContactUrgenceTelephone());
