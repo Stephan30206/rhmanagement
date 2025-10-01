@@ -30,13 +30,22 @@ const CarrierePastorale: React.FC<CarrierePastoraleProps> = ({ employe }) => {
         loadAffectations();
     }, [employe.id]);
 
-    const determineStatut = (dateFin: string): string => {
+    const determineStatut = (dateDebut: string, dateFin: string | null): string => {
         const aujourdhui = new Date();
+        const dateDebutObj = new Date(dateDebut);
         const dateFinObj = dateFin ? new Date(dateFin) : null;
 
+        // Si la date de début est dans le futur
+        if (dateDebutObj > aujourdhui) {
+            return 'PROVISOIRE';
+        }
+
+        // Si la date de fin est passée
         if (dateFinObj && dateFinObj < aujourdhui) {
             return 'TERMINEE';
         }
+
+        // Sinon, c'est actif
         return 'ACTIVE';
     };
 
@@ -99,7 +108,7 @@ const CarrierePastorale: React.FC<CarrierePastoraleProps> = ({ employe }) => {
         try {
             setSaving(true);
 
-            const statutAuto = determineStatut(affectationData.dateDebut);
+            const statutAuto = determineStatut(affectationData.dateDebut,affectationData.dateFin);
 
             const requestData = {
                 district: affectationData.district,
@@ -294,7 +303,7 @@ const CarrierePastorale: React.FC<CarrierePastoraleProps> = ({ employe }) => {
                                     <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
                                         affectation.statut === 'ACTIVE' ? 'bg-green-100 text-green-800' :
                                             affectation.statut === 'TERMINEE' ? 'bg-gray-100 text-gray-800' :
-                                                'bg-yellow-100 text-yellow-800'
+                                                'bg-blue-100 text-blue-800' // Pour PROVISOIRE
                                     }`}>
                                         {affectation.statut === 'ACTIVE' ? 'En cours' :
                                             affectation.statut === 'TERMINEE' ? 'Terminée' : 'Provisoire'}

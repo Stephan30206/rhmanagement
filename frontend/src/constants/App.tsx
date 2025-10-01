@@ -679,7 +679,16 @@ function App() {
         const employesActifs = safeEmployes.filter(e => e.statut === 'ACTIF').length;
         const employesInactifs = safeEmployes.filter(e => e.statut === 'INACTIF').length;
         const employesEnConge = safeEmployes.filter(e => e.statut === 'EN_CONGE').length;
-        const postes = [...new Set(safeEmployes.map(e => e.poste).filter(Boolean))];
+
+        // ✅ CORRECTION : Créer la liste des postes en prenant en compte postePersonnalise
+        const postesAvecPersonnalisation = [...new Set(
+            safeEmployes.map(employe => {
+                if (employe.poste === 'AUTRE' && employe.postePersonnalise) {
+                    return employe.postePersonnalise; // Retourne "Agent de nettoyage"
+                }
+                return employe.poste; // Retourne les autres postes standards
+            }).filter(Boolean)
+        )];
 
         return (
             <ErrorBoundary>
@@ -844,7 +853,7 @@ function App() {
                             )}
                         </div>
 
-                        {/* Diagramme par poste - Version élargie */}
+                        {/* Diagramme par poste - Version élargie CORRIGÉE */}
                         <div className="bg-white shadow-lg rounded-xl p-6 border border-gray-100">
                             <h3 className="text-xl font-semibold text-gray-800 mb-5 flex items-center">
                                 <svg className="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -853,16 +862,24 @@ function App() {
                                 Répartition par poste
                             </h3>
 
-                            {postes.length > 0 ? (
+                            {postesAvecPersonnalisation.length > 0 ? (
                                 <div className="flex items-center justify-center">
                                     <div className="relative" style={{ width: '100%', height: '320px' }}>
                                         <ResponsiveContainer width="100%" height="100%">
                                             <PieChart>
                                                 <Pie
-                                                    data={postes.map(poste => {
-                                                        const count = safeEmployes.filter(e => e.poste === poste).length;
+                                                    data={postesAvecPersonnalisation.map(posteDisplay => {
+                                                        // ✅ CORRECTION : Compter les employés pour ce poste
+                                                        const count = safeEmployes.filter(employe => {
+                                                            if (employe.poste === 'AUTRE' && employe.postePersonnalise) {
+                                                                return employe.postePersonnalise === posteDisplay;
+                                                            } else {
+                                                                return employe.poste === posteDisplay;
+                                                            }
+                                                        }).length;
+
                                                         return {
-                                                            name: poste?.replace('_', ' '),
+                                                            name: posteDisplay,
                                                             value: count,
                                                             percentage: safeEmployes.length > 0 ? ((count / safeEmployes.length) * 100).toFixed(1) : 0
                                                         };
@@ -873,10 +890,10 @@ function App() {
                                                     cy="50%"
                                                     innerRadius={75}
                                                     outerRadius={110}
-                                                    label={({ name, percentage }) => `${name} (${percentage}%)`}
+                                                    label={({ percentage }) => `${percentage}%`}
                                                     labelLine={false}
                                                 >
-                                                    {postes.map((poste, index) => (
+                                                    {postesAvecPersonnalisation.map((poste, index) => (
                                                         <Cell
                                                             key={`cell-${poste}`}
                                                             fill={["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#6366F1", "#14B8A6", "#8B5CF6", "#EC4899"][index % 8]}
@@ -884,11 +901,17 @@ function App() {
                                                     ))}
                                                 </Pie>
                                                 <Tooltip
-                                                    formatter={(value, name, props) => [`${value} employés (${props.payload.percentage}%)`, name]}
+                                                    formatter={(value, name) => [
+                                                        <div key="tooltip-content">
+                                                            <div className="font-semibold">{`${value} employés`}</div>
+                                                        </div>,
+                                                        name
+                                                    ]}
                                                     contentStyle={{
                                                         borderRadius: '8px',
                                                         border: '1px solid #E5E7EB',
-                                                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                                                        maxWidth: '300px'
                                                     }}
                                                 />
                                                 <Legend
@@ -1137,7 +1160,9 @@ function App() {
                                                 {employe.matricule}
                                             </td>
                                             <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500 max-w-[100px] truncate">
-                                                {employe.poste?.replace('_', ' ')}
+                                                {employe.poste === 'AUTRE' && employe.postePersonnalise
+                                                    ? employe.postePersonnalise
+                                                    : employe.poste?.replace('_', ' ')}
                                             </td>
                                             <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">
                                                 {employe.telephone}

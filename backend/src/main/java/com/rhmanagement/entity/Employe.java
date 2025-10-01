@@ -101,6 +101,9 @@ public class Employe {
     @Column(length = 100)
     private String postePersonnalise;
 
+    @Column(name = "solde_conge_annuel")
+    private Integer soldeCongeAnnuel;
+
     @Column(length = 100)
     private String organisationEmployeur;
 
@@ -182,7 +185,7 @@ public class Employe {
     }
 
     public enum Poste {
-        EVANGELISTE, PASTEUR_STAGIAIRE, PASTEUR_AUTORISE, PASTEUR_CONSACRE, SECRETAIRE_EXECUTIF, TRESORIER, ASSISTANT_RH, VERIFICATEUR,AUTRE
+        EVANGELISTE, PASTEUR_STAGIAIRE, PASTEUR_AUTORISE, PASTEUR_CONSACRE, SECRETAIRE_EXECUTIF, TRESORIER, ASSISTANT_RH, VERIFICATEUR, SECURITE, AUTRE
     }
 
     public enum TypeContrat {

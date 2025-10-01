@@ -314,8 +314,13 @@ public class DemandeCongeService {
     }
 
     public int getSoldeCongeDisponible(Long employeId) {
-        // Solde annuel fixe de 25 jours
-        int soldeAnnuel = 25;
+        // Récupérer l'employé avec son solde personnalisé
+        Employe employe = employeRepository.findById(employeId)
+                .orElseThrow(() -> new RuntimeException("Employé non trouvé"));
+
+        // Utiliser le solde personnalisé ou la valeur par défaut
+        int soldeAnnuel = employe.getSoldeCongeAnnuel() != null ?
+                employe.getSoldeCongeAnnuel() : 25;
 
         // Calculer les jours déjà pris (seulement les demandes approuvées)
         List<DemandeConge> demandesApprouvees = demandeCongeRepository.findByEmployeIdAndStatut(
@@ -326,7 +331,6 @@ public class DemandeCongeService {
                     if (demande.getJoursDemandes() != null) {
                         return demande.getJoursDemandes();
                     } else {
-                        // Calculer les jours si non définis
                         return (int) ChronoUnit.DAYS.between(
                                 demande.getDateDebut(),
                                 demande.getDateFin()
@@ -337,7 +341,6 @@ public class DemandeCongeService {
 
         return soldeAnnuel - totalJoursPris;
     }
-
 
     public Map<String, Object> getDemandeDetails(Long id) {
         Optional<DemandeConge> demandeOpt = demandeCongeRepository.findById(id);

@@ -149,7 +149,7 @@ const DemandeCongeForm: React.FC<DemandeCongeFormProps> = ({
         loadSolde();
     }, [formData.employeId]);
 
-    // Fonction pour calculer le solde disponible (sans JAMAIS inclure la demande actuelle)
+// Fonction pour calculer le solde disponible (sans JAMAIS inclure la demande actuelle)
     const calculerSoldeActuel = (): number => {
         if (!formData.employeId) return employeSolde;
 
@@ -233,8 +233,9 @@ const DemandeCongeForm: React.FC<DemandeCongeFormProps> = ({
             errors.dates = dateError;
         }
 
+        // Validation des jours demandés vs solde disponible
         if (joursDemandes > soldeActuel) {
-            errors.solde = `Solde insuffisant. L'employé a ${soldeActuel} jour(s) disponible(s)`;
+            errors.solde = `Solde insuffisant. L'employé a ${soldeActuel} jour(s) disponible(s) sur ${employeSolde} jour(s) annuel(s)`;
         }
 
         setValidationErrors(errors);
@@ -660,7 +661,7 @@ const DemandeCongeForm: React.FC<DemandeCongeFormProps> = ({
                                                 {demandesExistantes
                                                     .filter(d => d.statut === 'APPROUVE' && d.id !== demande?.id)
                                                     .reduce((total, d) => total + (d.joursDemandes || calculateDays(d.dateDebut, d.dateFin)), 0)}
-                                                jour{demandesExistantes.filter(d => d.statut === 'APPROUVE' && d.id !== demande?.id).length !== 1 ? 's' : ''}
+                                                                            jour{demandesExistantes.filter(d => d.statut === 'APPROUVE' && d.id !== demande?.id).length !== 1 ? 's' : ''}
                                             </span>
                                         </div>
                                         <div>
@@ -675,7 +676,7 @@ const DemandeCongeForm: React.FC<DemandeCongeFormProps> = ({
                                             <span className="text-gray-600">Reste après validation:</span>
                                             <span className={`ml-2 font-medium ${resteConges < 0 ? 'text-red-600' : ''}`}>
                                                 {resteConges} jour{resteConges !== 1 ? 's' : ''}
-                                                {resteConges < 0 && ' (Dépassement!)'}
+                                                                            {resteConges < 0 && ' (Dépassement!)'}
                                             </span>
                                         </div>
                                     </div>

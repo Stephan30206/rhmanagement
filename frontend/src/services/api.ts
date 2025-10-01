@@ -23,6 +23,7 @@ export interface Employe {
     postePersonnalise: string;
     nouveauPoste: string;
     soldeConges?: number;
+    soldeCongeAnnuel?: number;
     numeroCNAPS: string;
     nombreEnfants: number;
     dateNaissanceConjoint: string;

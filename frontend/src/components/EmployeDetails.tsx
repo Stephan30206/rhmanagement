@@ -76,6 +76,7 @@ const EmployeDetails: React.FC<EmployeDetailsProps> = ({ employe, onClose, onEdi
         const loadDetails = async () => {
             try {
                 const data = await employeService.getEmployeById(employe.id);
+                console.log('Détails employé:', data);
                 setDetails(data);
                 setStatutReelEmploye(data.statut);
 
@@ -375,7 +376,7 @@ const EmployeDetails: React.FC<EmployeDetailsProps> = ({ employe, onClose, onEdi
                             </div>
                             <div>
                                 <label className="text-sm font-medium text-gray-500">Nom du conjoint</label>
-                                <p className="text-gray-900">{details.nomConjoint || 'Non spécifié'}</p>
+                                <p className="text-gray-900">{details.nomConjoint || 'Nom spécifié'}</p>
                             </div>
                             <div>
                                 <label className="text-sm font-medium text-gray-500">Date de naissance du conjoint</label>

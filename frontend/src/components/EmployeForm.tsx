@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Save, User, Phone, Briefcase, DollarSign, Percent, Upload, Camera, Plus, Trash2, RefreshCw, Calendar } from 'lucide-react';
-import { type Employe, employeService, demandeCongeService } from '../services/api';
+import {type Employe, employeService, demandeCongeService, type EmployeStatut} from '../services/api';
 
 interface EmployeFormProps {
     employe?: Employe | null;
@@ -57,7 +57,9 @@ const EmployeForm: React.FC<EmployeFormProps> = ({ employe, onClose, onSave }) =
         groupeAccreditation: '',
         superviseurHierarchique: '',
         affectationActuelle: '',
-        postePersonnalise: ''
+        postePersonnalise: '',
+        soldeCongeAnnuel: '',
+        soldeCongeAnnuelCustom: ''
     });
 
     const [enfants, setEnfants] = useState<Enfant[]>([]);
@@ -201,6 +203,7 @@ const EmployeForm: React.FC<EmployeFormProps> = ({ employe, onClose, onSave }) =
     useEffect(() => {
         if (employe) {
             setFormData({
+                soldeCongeAnnuel: "", soldeCongeAnnuelCustom: "",
                 matricule: employe.matricule || '',
                 nom: employe.nom || '',
                 prenom: employe.prenom || '',
@@ -329,38 +332,65 @@ const EmployeForm: React.FC<EmployeFormProps> = ({ employe, onClose, onSave }) =
         setError('');
 
         try {
-            // Validation pour le nouveau poste
-            if (formData.poste === 'AUTRE' && !formData.postePersonnalise?.trim()) {
-                setError('Veuillez spécifier le nouveau poste');
-                setLoading(false);
-                return;
+            // VALIDATION AMÉLIORÉE
+            if (formData.poste === 'AUTRE') {
+                if (!formData.postePersonnalise?.trim()) {
+                    setError('Veuillez spécifier le poste personnalisé lorsque vous sélectionnez "AUTRE"');
+                    setLoading(false);
+                    return;
+                }
             }
 
-            const employeData = {
-                ...formData,
-                poste: formData.poste, // Garder "AUTRE" si sélectionné
-                postePersonnalise: formData.poste === 'AUTRE' ? formData.postePersonnalise?.trim() : null,
-                salaireBase: formData.salaireBase ? parseFloat(formData.salaireBase) : 0,
-                pourcentageSalaire: formData.pourcentageSalaire ? parseFloat(formData.pourcentageSalaire) : 0,
-                dateMariage: formData.dateMariage || null,
-                dateDebut: formData.dateDebut || null,
-                dateFin: formData.dateFin || null,
-                dateAccreditation: formData.dateAccreditation || null,
+            // Préparer les données avec les types corrects
+            const employeData: Partial<Employe> = {
+                matricule: formData.matricule,
+                nom: formData.nom,
+                prenom: formData.prenom,
+                dateNaissance: formData.dateNaissance,
+                lieuNaissance: formData.lieuNaissance || undefined,
+                nationalite: formData.nationalite,
+                cin: formData.cin || undefined,
+                adresse: formData.adresse || undefined,
+                telephone: formData.telephone || undefined,
+                email: formData.email || undefined,
+                photoProfil: formData.photoProfil || undefined,
+                statutMatrimonial: formData.statutMatrimonial,
+                dateMariage: formData.dateMariage || undefined,
+                nomConjoint: formData.nomConjoint || undefined,
+                dateNaissanceConjoint: formData.dateNaissanceConjoint || undefined,
                 nombreEnfants: enfants.length,
-                affectationActuelle: affectationActuelleAuto
+                numeroCNAPS: formData.numeroCNAPS || undefined,
+                contactUrgenceNom: formData.contactUrgenceNom || undefined,
+                contactUrgenceLien: formData.contactUrgenceLien || undefined,
+                contactUrgenceTelephone: formData.contactUrgenceTelephone || undefined,
+                nomPere: formData.nomPere || undefined,
+                nomMere: formData.nomMere || undefined,
+                poste: formData.poste,
+                // CORRECTION : Gestion correcte du poste personnalisé
+                postePersonnalise: formData.poste === 'AUTRE' ? formData.postePersonnalise : undefined,
+                organisationEmployeur: formData.organisationEmployeur || undefined,
+                typeContrat: formData.typeContrat,
+                dateDebut: formData.dateDebut || undefined,
+                dateFin: formData.dateFin || undefined,
+                salaireBase: formData.salaireBase ? parseFloat(formData.salaireBase) : undefined,
+                pourcentageSalaire: formData.pourcentageSalaire ? parseFloat(formData.pourcentageSalaire) : undefined,
+                statut: formData.statut as EmployeStatut,
+                dateAccreditation: formData.dateAccreditation || undefined,
+                niveauAccreditation: formData.niveauAccreditation || undefined,
+                groupeAccreditation: formData.groupeAccreditation || undefined,
+                superviseurHierarchique: formData.superviseurHierarchique || undefined,
+                affectationActuelle: affectationActuelleAuto || undefined
             };
 
-            // Créer une copie sans le champ nouveauPoste
-            const { postePersonnalise, ...employeDataToSend } = employeData;
+            console.log('Données envoyées:', employeData);
 
+            // CORRECTION : Envoyer toutes les données correctement
             let savedEmploye: Employe;
 
             if (employe) {
-                // @ts-ignore
-                savedEmploye = await employeService.updateEmploye(employe.id, employeDataToSend);
+                savedEmploye = await employeService.updateEmploye(employe.id, employeData);
             } else {
-                // @ts-ignore
-                savedEmploye = await employeService.createEmploye(employeDataToSend);
+                savedEmploye = await employeService.createEmploye(employeData);
             }
 
             // Sauvegarder les enfants
@@ -443,7 +473,11 @@ const EmployeForm: React.FC<EmployeFormProps> = ({ employe, onClose, onSave }) =
                 <h2 className="text-2xl font-bold text-gray-900">
                     {employe ? 'Modifier l\'employé' : 'Nouvel employé'}
                 </h2>
-                <button onClick={onClose} className="p-2 rounded-md hover:bg-gray-100">
+                <button
+                    onClick={onClose}
+                    className="p-2 rounded-md hover:bg-gray-100"
+                    type="button"
+                >
                     <X className="w-5 h-5"/>
                 </button>
             </div>
@@ -455,39 +489,6 @@ const EmployeForm: React.FC<EmployeFormProps> = ({ employe, onClose, onSave }) =
                     </div>
                 )}
 
-                {hasCongeActif && congeActif && (
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
-                        <div className="flex items-center">
-                            <Calendar className="w-5 h-5 text-yellow-600 mr-2" />
-                            <h3 className="text-lg font-medium text-yellow-800">Congé en cours</h3>
-                        </div>
-                        <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                            <div>
-                                <span className="text-yellow-700">Type: </span>
-                                <span className="font-medium">{congeActif.typeConge || 'Non spécifié'}</span>
-                            </div>
-                            <div>
-                                <span className="text-yellow-700">Du: </span>
-                                <span className="font-medium">{formatDate(congeActif.dateDebut)}</span>
-                            </div>
-                            <div>
-                                <span className="text-yellow-700">Au: </span>
-                                <span className="font-medium">{formatDate(congeActif.dateFin)}</span>
-                            </div>
-                            <div>
-                                <span className="text-yellow-700">Motif: </span>
-                                <span className="font-medium">{congeActif.motif || 'Non spécifié'}</span>
-                            </div>
-                        </div>
-                        <div className="mt-2">
-                            <p className="text-xs text-yellow-600">
-                                Le statut de l'employé est automatiquement défini sur "EN_CONGE" tant que ce congé est actif.
-                            </p>
-                        </div>
-                    </div>
-                )}
-
-                {/* Affichage du congé actif */}
                 {hasCongeActif && congeActif && (
                     <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
                         <div className="flex items-center">
@@ -933,15 +934,16 @@ const EmployeForm: React.FC<EmployeFormProps> = ({ employe, onClose, onSave }) =
                                 required
                                 className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                             >
-                                <option value="EVANGELISTE">Évangéliste</option>
-                                <option value="PASTEUR_STAGIAIRE">Pasteur stagiaire</option>
-                                <option value="PASTEUR_AUTORISE">Pasteur autorisé</option>
-                                <option value="PASTEUR_CONSACRE">Pasteur consacré</option>
+                                <option value="EVANGELISTE">EVANGELISTE</option>
+                                <option value="PASTEUR_STAGIAIRE">PASTEUR STAGIAIRE</option>
+                                <option value="PASTEUR_AUTORISE">PASTEUR AUTORISE</option>
+                                <option value="PASTEUR_CONSACRE">PASTEUR CONSACRE</option>
                                 <option value="VERIFICATEUR">VERIFICATEUR</option>
-                                <option value="SECRETAIRE_EXECUTIF">Secrétaire exécutif</option>
-                                <option value="TRESORIER">Trésorier</option>
-                                <option value="ASSISTANT_RH">Assistant RH</option>
-                                <option value="AUTRE">Autre</option>
+                                <option value="SECRETAIRE_EXECUTIF">SECRETAIRE EXECUTIF</option>
+                                <option value="TRESORIER">TRESORIER</option>
+                                <option value="ASSISTANT_RH">ASSISTANT RH</option>
+                                <option value="SECURITE">SECURITE</option>
+                                <option value="AUTRE">AUTRE</option>
                             </select>
                         </div>
 
@@ -960,6 +962,25 @@ const EmployeForm: React.FC<EmployeFormProps> = ({ employe, onClose, onSave }) =
                                 />
                             </div>
                         )}
+
+                        <div>
+                            <label htmlFor="soldeCongeAnnuel" className="block text-sm font-medium text-gray-700">
+                                Solde congé annuel (automatique)
+                            </label>
+                            <input
+                                type="number"
+                                id="soldeCongeAnnuel"
+                                name="soldeCongeAnnuel"
+                                value={formData.soldeCongeAnnuel || 23}
+                                readOnly
+                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-100"
+                            />
+                            <p className="text-sm text-gray-500 mt-1">
+                                {formData.poste === 'SECURITE'
+                                    ? '30 jours (Poste Sécurité)'
+                                    : '23 jours (Poste standard)'}
+                            </p>
+                        </div>
 
                         <div>
                             <label className="block text-sm font-medium text-gray-700">
@@ -986,6 +1007,38 @@ const EmployeForm: React.FC<EmployeFormProps> = ({ employe, onClose, onSave }) =
                                 <p className="text-xs text-yellow-600 mt-1">
                                     Le statut est verrouillé car l'employé a un congé en cours
                                 </p>
+                            )}
+                        </div>
+
+                        <div>
+                            <label htmlFor="soldeCongeAnnuel" className="block text-sm font-medium text-gray-700">
+                                Solde congé annuel (jours)
+                            </label>
+                            <select
+                                id="soldeCongeAnnuel"
+                                name="soldeCongeAnnuel"
+                                value={formData.soldeCongeAnnuel || ''}
+                                onChange={handleChange}
+                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                            >
+                                <option value="">Défaut (25 jours)</option>
+                                <option value="23">23 jours</option>
+                                <option value="30">30 jours</option>
+                                <option value="35">35 jours</option>
+                                <option value="custom">Personnalisé</option>
+                            </select>
+
+                            {formData.soldeCongeAnnuel === 'custom' && (
+                                <input
+                                    type="number"
+                                    name="soldeCongeAnnuelCustom"
+                                    value={formData.soldeCongeAnnuelCustom || ''}
+                                    onChange={handleChange}
+                                    placeholder="Nombre de jours personnalisé"
+                                    className="mt-2 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                    min="1"
+                                    max="60"
+                                />
                             )}
                         </div>
 
